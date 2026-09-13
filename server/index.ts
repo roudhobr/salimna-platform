@@ -68,14 +68,16 @@ app.use((req, res) => {
   res.status(404).send('Not Found');
 });
 
-app.listen(PORT, () => {
-  const configured = isSupabaseConfigured();
-  console.log(`
-  🚀 ===============================================
-     Salimna Full Stack Backend Server Ready!
-     Port     : http://localhost:${PORT}
-     Database : Supabase (PostgreSQL Cloud) [${configured ? 'Configured ✅' : 'Credentials Pending ⚠️'}]
-     Health   : http://localhost:${PORT}/api/health
-  ===============================================
-  `);
-});
+export { app };
+
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => {
+    const configured = isSupabaseConfigured();
+    console.log(`
+    Salimna Full Stack Backend Server Ready!
+    Port     : http://localhost:${PORT}
+    Database : Supabase (PostgreSQL Cloud) [${configured ? 'Configured' : 'Credentials Pending'}]
+    Health   : http://localhost:${PORT}/api/health
+    `);
+  });
+}

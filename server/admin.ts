@@ -9,8 +9,6 @@ const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
 const ADMIN_SESSION_SECRET = process.env.ADMIN_SESSION_SECRET || 'salimna-admin-secret';
 const ADMIN_SESSION_TTL_MS = 1000 * 60 * 60 * 12;
 
-const sessions = new Map<string, { username: string; expiresAt: number }>();
-
 const normalizeOrder = (order: any) => {
   if (!order) return order;
 
@@ -90,14 +88,6 @@ const requireAdminAuth = (req: Request, res: Response, next: NextFunction) => {
     return res.status(401).json({ success: false, error: 'Unauthorized: token admin tidak valid atau sudah kedaluwarsa.' });
   }
 
-  const hashedKey = crypto.createHash('sha256').update(token).digest('hex');
-  const session = sessions.get(hashedKey);
-
-  if (!session || session.username !== payload.username || session.expiresAt < Date.now()) {
-    sessions.delete(hashedKey);
-    return res.status(401).json({ success: false, error: 'Unauthorized: sesi admin tidak ditemukan.' });
-  }
-
   (req as any).admin = { username: payload.username, role: 'admin' };
   next();
 };
@@ -135,13 +125,6 @@ adminRouter.post('/login', async (req: Request, res: Response) => {
 
     const issuedAt = Date.now();
     const token = buildSignedToken(ADMIN_USERNAME, issuedAt);
-    const hashedKey = crypto.createHash('sha256').update(token).digest('hex');
-
-    sessions.set(hashedKey, {
-      username: ADMIN_USERNAME,
-      expiresAt: issuedAt + ADMIN_SESSION_TTL_MS,
-    });
-
     return res.json({
       success: true,
       data: {
@@ -157,12 +140,6 @@ adminRouter.post('/login', async (req: Request, res: Response) => {
 });
 
 adminRouter.post('/logout', requireAdminAuth, (req: Request, res: Response) => {
-  const token = getTokenFromRequest(req);
-  if (token) {
-    const hashedKey = crypto.createHash('sha256').update(token).digest('hex');
-    sessions.delete(hashedKey);
-  }
-
   return res.json({ success: true, message: 'Logout admin berhasil.' });
 });
 
