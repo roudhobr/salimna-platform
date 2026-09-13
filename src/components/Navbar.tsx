@@ -21,7 +21,6 @@ export default function Navbar() {
     { name: 'Tentang Kami', href: '/about', id: 'about' },
     { name: 'Artikel', href: '#research', id: 'research' },
     { name: 'Toko', href: '/shop', id: 'shop' },
-    { name: 'Admin', href: '/admin', id: 'admin' },
   ];
 
   useEffect(() => {

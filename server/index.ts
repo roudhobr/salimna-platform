@@ -7,6 +7,7 @@ import { articlesRouter } from './routes/articles.js';
 import { ordersRouter } from './routes/orders.js';
 import { inquiriesRouter } from './routes/inquiries.js';
 import { statsRouter } from './routes/stats.js';
+import { adminRouter } from './admin.js';
 
 dotenv.config();
 
@@ -57,6 +58,7 @@ app.use('/api/articles', articlesRouter);
 app.use('/api/orders', ordersRouter);
 app.use('/api/inquiries', inquiriesRouter);
 app.use('/api/stats', statsRouter);
+app.use('/api/admin', adminRouter);
 
 // Global 404 handler for API routes
 app.use((req, res) => {

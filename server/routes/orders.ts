@@ -260,3 +260,22 @@ ordersRouter.put('/:id/status', async (req: Request, res: Response) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
+
+// DELETE order
+ordersRouter.delete('/:id', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const { error } = await supabase
+      .from('orders')
+      .delete()
+      .eq('id', Number(id));
+
+    if (error) throw error;
+
+    res.json({ success: true, message: 'Pesanan berhasil dihapus' });
+  } catch (error: any) {
+    console.error('Error deleting order:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});

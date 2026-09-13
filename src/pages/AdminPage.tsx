@@ -17,12 +17,50 @@ import {
   TrendingUp, 
   RefreshCw,
   Database,
-  Search
+  Search,
+  Lock,
+  User,
+  ShieldCheck,
+  Download
 } from 'lucide-react';
 import { api, Product, Article, Order, DashboardStats } from '../services/api';
 
+const ADMIN_SESSION_KEY = 'salimna_admin_session';
+const ADMIN_TOKEN_KEY = 'salimna_admin_session_token';
+const ADMIN_ACCOUNT = {
+  username: 'salimna',
+  password: 'admin123',
+  role: 'admin',
+};
+
+const ADMIN_STATUS_OPTIONS = ['all', 'pending', 'confirmed', 'shipped', 'completed', 'cancelled'];
+
+const getStoredAdminSession = () => {
+  if (typeof window === 'undefined') return null;
+
+  const saved = localStorage.getItem(ADMIN_SESSION_KEY) || sessionStorage.getItem(ADMIN_SESSION_KEY);
+  const token = localStorage.getItem(ADMIN_TOKEN_KEY) || sessionStorage.getItem(ADMIN_TOKEN_KEY);
+  if (!saved || !token) return null;
+
+  try {
+    const parsed = JSON.parse(saved);
+    if (parsed?.role === ADMIN_ACCOUNT.role) {
+      return parsed;
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+};
+
 export default function AdminPage() {
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => Boolean(getStoredAdminSession()));
+  const [loginForm, setLoginForm] = useState({ username: '', password: '', rememberMe: true });
+  const [loginError, setLoginError] = useState('');
   const [activeTab, setActiveTab] = useState<'overview' | 'products' | 'articles' | 'orders'>('overview');
+  const [orderFilter, setOrderFilter] = useState<string>('all');
+  const [adminToken, setAdminToken] = useState<string | null>(() => (typeof window === 'undefined' ? null : localStorage.getItem(ADMIN_TOKEN_KEY) || sessionStorage.getItem(ADMIN_TOKEN_KEY) || null));
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [articles, setArticles] = useState<Article[]>([]);
@@ -37,6 +75,71 @@ export default function AdminPage() {
   const [showArticleModal, setShowArticleModal] = useState(false);
   const [editingArticle, setEditingArticle] = useState<Partial<Article> | null>(null);
 
+  const saveAdminSession = (rememberMe: boolean) => {
+    const session = {
+      username: ADMIN_ACCOUNT.username,
+      role: ADMIN_ACCOUNT.role,
+      isAuthenticated: true,
+      rememberMe,
+    };
+
+    if (rememberMe) {
+      localStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify(session));
+      sessionStorage.removeItem(ADMIN_SESSION_KEY);
+    } else {
+      sessionStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify(session));
+      localStorage.removeItem(ADMIN_SESSION_KEY);
+    }
+  };
+
+  const saveAdminToken = (token: string, rememberMe: boolean) => {
+    if (rememberMe) {
+      localStorage.setItem(ADMIN_TOKEN_KEY, token);
+      sessionStorage.removeItem(ADMIN_TOKEN_KEY);
+    } else {
+      sessionStorage.setItem(ADMIN_TOKEN_KEY, token);
+      localStorage.removeItem(ADMIN_TOKEN_KEY);
+    }
+
+    setAdminToken(token);
+  };
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const username = loginForm.username.trim();
+    const password = loginForm.password;
+
+    try {
+      const session = await api.adminLogin(username, password);
+      saveAdminToken(session.token, loginForm.rememberMe);
+      saveAdminSession(loginForm.rememberMe);
+      setIsAuthenticated(true);
+      setLoginError('');
+      return;
+    } catch (err: any) {
+      setLoginError(err.message || 'Login admin gagal.');
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      if (adminToken) {
+        await api.adminLogout(adminToken);
+      }
+    } catch (err) {
+      console.warn('Logout admin token tidak valid atau sudah expired:', err);
+    } finally {
+      setIsAuthenticated(false);
+      setAdminToken(null);
+      setLoginForm({ username: '', password: '', rememberMe: true });
+      localStorage.removeItem(ADMIN_SESSION_KEY);
+      sessionStorage.removeItem(ADMIN_SESSION_KEY);
+      localStorage.removeItem(ADMIN_TOKEN_KEY);
+      sessionStorage.removeItem(ADMIN_TOKEN_KEY);
+    }
+  };
+
   const loadData = async () => {
     try {
       setLoading(true);
@@ -44,7 +147,7 @@ export default function AdminPage() {
         api.getStats().catch(() => null),
         api.getProducts({ all: true }).catch(() => []),
         api.getArticles({ all: true }).catch(() => []),
-        api.getOrders().catch(() => [])
+        api.getAdminOrders(orderFilter)
       ]);
 
       setStats(statsData);
@@ -53,14 +156,53 @@ export default function AdminPage() {
       setOrders(ordersData);
     } catch (err: any) {
       console.error('Error loading admin data:', err);
+      if (err.message?.toLowerCase().includes('unauthorized')) {
+        handleLogout();
+      }
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadData();
-  }, []);
+    if (isAuthenticated) {
+      loadData();
+    }
+  }, [isAuthenticated, orderFilter]);
+
+  const handleDeleteOldOrders = async () => {
+    const daysInput = prompt('Hapus pesanan lama lebih dari berapa hari? (contoh: 30)', '30');
+    const days = Number(daysInput || 0);
+    if (!days || days <= 0) return;
+
+    const statusInput = prompt('Status yang akan dihapus? (all/pending/confirmed/shipped/completed/cancelled)', 'completed');
+    const status = statusInput || 'completed';
+
+    try {
+      await api.deleteOldAdminOrders(days, status);
+      loadData();
+      alert('Pesanan lama berhasil dihapus.');
+    } catch (err: any) {
+      alert(`Gagal menghapus pesanan lama: ${err.message}`);
+    }
+  };
+
+  const handleExportOrders = async () => {
+    try {
+      const csv = await api.exportAdminOrdersCsv(orderFilter);
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `salimna-orders-${orderFilter || 'all'}-${Date.now()}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      alert(`Gagal mengekspor data order: ${err.message}`);
+    }
+  };
 
   // Product handlers
   const handleSaveProduct = async (e: React.FormEvent) => {
@@ -136,6 +278,89 @@ export default function AdminPage() {
     }
   };
 
+  const handleDeleteOrder = async (orderId: number) => {
+    if (!confirm('Apakah Anda yakin ingin menghapus pesanan ini?')) return;
+
+    try {
+      await api.deleteAdminOrder(orderId);
+      loadData();
+    } catch (err: any) {
+      alert(`Gagal menghapus pesanan: ${err.message}`);
+    }
+  };
+
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4 pt-28 pb-20">
+        <div className="w-full max-w-md bg-white rounded-[32px] border border-slate-200 shadow-xl p-8">
+          <div className="flex items-center justify-center mb-6">
+            <div className="bg-primary/10 text-primary p-3 rounded-2xl">
+              <ShieldCheck className="w-7 h-7" />
+            </div>
+          </div>
+
+          <div className="text-center mb-6">
+            <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-primary/70">Area Terbatas</p>
+            <h1 className="font-display text-3xl font-bold text-black mt-2">Admin Login</h1>
+          </div>
+
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div>
+              <label className="block text-xs font-bold text-black mb-1">Username</label>
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-black/40" />
+                <input
+                  type="text"
+                  value={loginForm.username}
+                  onChange={(e) => setLoginForm({ ...loginForm, username: e.target.value })}
+                  placeholder="salimna"
+                  className="w-full pl-10 pr-4 py-3 rounded-2xl border border-slate-200 bg-white text-black placeholder:text-black/40 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-black mb-1">Password</label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-black/40" />
+                <input
+                  type="password"
+                  value={loginForm.password}
+                  onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
+                  placeholder="••••••••"
+                  className="w-full pl-10 pr-4 py-3 rounded-2xl border border-slate-200 bg-white text-black placeholder:text-black/40 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                />
+              </div>
+            </div>
+
+            <label className="flex items-center gap-2 text-xs text-black/60">
+              <input
+                type="checkbox"
+                checked={loginForm.rememberMe}
+                onChange={(e) => setLoginForm({ ...loginForm, rememberMe: e.target.checked })}
+                className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary"
+              />
+              Ingat saya
+            </label>
+
+            {loginError && (
+              <div className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">
+                {loginError}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              className="w-full bg-primary text-white rounded-2xl py-3 text-sm font-bold hover:bg-primary/90 transition-colors shadow-md"
+            >
+              Masuk ke Admin
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#f8fafc] text-black pt-28 pb-20 px-4 sm:px-8">
       <div className="max-w-7xl mx-auto">
@@ -157,10 +382,28 @@ export default function AdminPage() {
 
           <div className="flex items-center gap-2">
             <button
+              onClick={handleExportOrders}
+              className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 px-4 py-2.5 rounded-full text-xs font-bold flex items-center gap-2 transition-colors cursor-pointer"
+            >
+              <Download className="w-3.5 h-3.5" /> Export CSV
+            </button>
+            <button
+              onClick={handleDeleteOldOrders}
+              className="bg-amber-50 hover:bg-amber-100 text-amber-700 px-4 py-2.5 rounded-full text-xs font-bold flex items-center gap-2 transition-colors cursor-pointer"
+            >
+              <Trash2 className="w-3.5 h-3.5" /> Hapus Semua Pesanan Lama
+            </button>
+            <button
               onClick={loadData}
               className="bg-slate-100 hover:bg-slate-200 text-black px-4 py-2.5 rounded-full text-xs font-bold flex items-center gap-2 transition-colors cursor-pointer"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} /> Refresh Data
+            </button>
+            <button
+              onClick={handleLogout}
+              className="bg-red-50 hover:bg-red-100 text-red-600 px-4 py-2.5 rounded-full text-xs font-bold transition-colors cursor-pointer"
+            >
+              Keluar
             </button>
           </div>
         </div>
@@ -455,18 +698,46 @@ export default function AdminPage() {
               <p className="text-xs text-black/50">Pantau detail pesanan pelanggan dan perbarui status pengiriman.</p>
             </div>
 
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-black/40" />
+                <input
+                  type="text"
+                  placeholder="Cari order / nama / WA"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-200 bg-white text-black placeholder:text-black/40 focus:outline-none focus:border-primary"
+                />
+              </div>
+              <select
+                value={orderFilter}
+                onChange={(e) => setOrderFilter(e.target.value)}
+                className="px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white text-black focus:outline-none focus:border-primary"
+              >
+                {ADMIN_STATUS_OPTIONS.map(option => (
+                  <option key={option} value={option}>
+                    {option === 'all' ? 'Semua status' : option}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             {orders.length === 0 ? (
               <p className="text-xs text-black/40 py-12 text-center">Belum ada pesanan yang masuk ke database.</p>
             ) : (
               <div className="space-y-4">
-                {orders.map(o => (
+                {orders.filter(o => {
+                  const term = searchQuery.toLowerCase();
+                  if (!term) return true;
+                  return `${o.order_number} ${o.customer_name} ${o.customer_phone} ${o.customer_email}`.toLowerCase().includes(term);
+                }).map(o => (
                   <div key={o.id} className="p-5 rounded-2xl border border-slate-100 bg-slate-50/40 hover:bg-white hover:border-slate-200 transition-all">
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-2 mb-3 pb-3 border-b border-slate-200">
                       <div>
                         <span className="font-mono font-bold text-primary text-sm">{o.order_number}</span>
                         <span className="text-xs text-black/40 ml-3">{new Date(o.created_at).toLocaleString('id-ID')}</span>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-xs font-semibold text-black/60">Ubah Status:</span>
                         <select
                           value={o.status}
@@ -479,6 +750,13 @@ export default function AdminPage() {
                           <option value="completed">Completed</option>
                           <option value="cancelled">Cancelled</option>
                         </select>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteOrder(o.id)}
+                          className="px-3 py-1.5 rounded-lg bg-red-50 text-red-600 text-[10px] font-bold hover:bg-red-100 transition-colors"
+                        >
+                          Hapus
+                        </button>
                       </div>
                     </div>
 

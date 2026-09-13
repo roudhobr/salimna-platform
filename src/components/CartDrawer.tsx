@@ -174,7 +174,7 @@ export default function CartDrawer() {
                         value={formData.customer_name}
                         onChange={handleInputChange}
                         placeholder="Contoh: Ahmad Fauzi"
-                        className="w-full text-sm px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:border-primary"
+                        className="w-full text-sm px-4 py-2.5 rounded-xl border border-gray-300 bg-white text-black placeholder:text-black/40 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                       />
                     </div>
                     <div>
@@ -186,7 +186,7 @@ export default function CartDrawer() {
                         value={formData.customer_phone}
                         onChange={handleInputChange}
                         placeholder="08123456789"
-                        className="w-full text-sm px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:border-primary"
+                        className="w-full text-sm px-4 py-2.5 rounded-xl border border-gray-300 bg-white text-black placeholder:text-black/40 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                       />
                     </div>
                     <div>
@@ -197,7 +197,7 @@ export default function CartDrawer() {
                         value={formData.customer_email}
                         onChange={handleInputChange}
                         placeholder="nama@email.com"
-                        className="w-full text-sm px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:border-primary"
+                        className="w-full text-sm px-4 py-2.5 rounded-xl border border-gray-300 bg-white text-black placeholder:text-black/40 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                       />
                     </div>
                     <div>
@@ -209,7 +209,7 @@ export default function CartDrawer() {
                         value={formData.shipping_address}
                         onChange={handleInputChange}
                         placeholder="Jalan, No Rumah, Kelurahan, Kecamatan, Kota/Kab, Kode Pos"
-                        className="w-full text-sm px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:border-primary"
+                        className="w-full text-sm px-4 py-2.5 rounded-xl border border-gray-300 bg-white text-black placeholder:text-black/40 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                       />
                     </div>
                     <div>
@@ -220,7 +220,7 @@ export default function CartDrawer() {
                         value={formData.notes}
                         onChange={handleInputChange}
                         placeholder="Ukuran khusus, instruksi kurir, dll."
-                        className="w-full text-sm px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:border-primary"
+                        className="w-full text-sm px-4 py-2.5 rounded-xl border border-gray-300 bg-white text-black placeholder:text-black/40 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                       />
                     </div>
                   </form>

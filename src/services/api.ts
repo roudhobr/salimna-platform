@@ -63,9 +63,99 @@ export interface DashboardStats {
   recentArticles: Article[];
 }
 
+export interface AdminSessionResponse {
+  token: string;
+  user: { username: string; role: string };
+  expiresAt: number;
+}
+
 const API_BASE = '/api';
 
 export const api = {
+  async adminLogin(username: string, password: string): Promise<AdminSessionResponse> {
+    const res = await fetch(`${API_BASE}/admin/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password }),
+    });
+
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || 'Login admin gagal');
+    return json.data;
+  },
+
+  async adminLogout(token: string): Promise<void> {
+    const res = await fetch(`${API_BASE}/admin/logout`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || 'Logout admin gagal');
+  },
+
+  async getAdminOrders(status?: string): Promise<Order[]> {
+    const query = new URLSearchParams();
+    if (status && status !== 'all') query.append('status', status);
+
+    const token = localStorage.getItem('salimna_admin_session_token') || sessionStorage.getItem('salimna_admin_session_token');
+    const res = await fetch(`${API_BASE}/admin/orders?${query.toString()}`, {
+      headers: {
+        Authorization: `Bearer ${token || ''}`,
+      },
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || 'Gagal memuat daftar pesanan admin');
+    return json.data || [];
+  },
+
+  async deleteAdminOrder(id: number): Promise<void> {
+    const token = localStorage.getItem('salimna_admin_session_token') || sessionStorage.getItem('salimna_admin_session_token');
+    const res = await fetch(`${API_BASE}/admin/orders/${id}`, {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${token || ''}`,
+      },
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || 'Gagal menghapus pesanan admin');
+  },
+
+  async deleteOldAdminOrders(days: number, status: string): Promise<void> {
+    const token = localStorage.getItem('salimna_admin_session_token') || sessionStorage.getItem('salimna_admin_session_token');
+    const query = new URLSearchParams({ days: String(days), status });
+    const res = await fetch(`${API_BASE}/admin/orders?${query.toString()}`, {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${token || ''}`,
+      },
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || 'Gagal menghapus pesanan lama');
+  },
+
+  async exportAdminOrdersCsv(status?: string): Promise<string> {
+    const token = localStorage.getItem('salimna_admin_session_token') || sessionStorage.getItem('salimna_admin_session_token');
+    const query = new URLSearchParams();
+    if (status && status !== 'all') query.append('status', status);
+
+    const res = await fetch(`${API_BASE}/admin/orders/export.csv?${query.toString()}`, {
+      headers: {
+        Authorization: `Bearer ${token || ''}`,
+      },
+    });
+
+    if (!res.ok) {
+      const json = await res.json().catch(() => null);
+      throw new Error(json?.error || 'Gagal mengekspor data order');
+    }
+
+    return await res.text();
+  },
+
   // Products
   async getProducts(params?: { category?: string; search?: string; all?: boolean }): Promise<Product[]> {
     const query = new URLSearchParams();
@@ -201,6 +291,14 @@ export const api = {
     const json = await res.json();
     if (!res.ok) throw new Error(json.error || 'Gagal memperbarui status pesanan');
     return json.data;
+  },
+
+  async deleteOrder(id: number): Promise<void> {
+    const res = await fetch(`${API_BASE}/orders/${id}`, {
+      method: 'DELETE',
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || 'Gagal menghapus pesanan');
   },
 
   // Inquiries

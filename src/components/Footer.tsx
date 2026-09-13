@@ -35,7 +35,7 @@ export default function Footer() {
   };
 
   const footerLinks = [
-    { title: 'Menu Utama', links: ['Beranda', 'Tentang Kami', 'Artikel', 'Katalog Toko', 'Admin Dashboard'] },
+    { title: 'Menu Utama', links: ['Beranda', 'Tentang Kami', 'Artikel', 'Katalog Toko'] },
   ];
 
   return (
