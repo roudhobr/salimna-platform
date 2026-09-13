@@ -1,80 +1,89 @@
 import { Router, Request, Response } from 'express';
-import { db } from '../db.js';
+import { supabase } from '../supabase.js';
 
 export const productsRouter = Router();
 
+// Helper untuk menormalisasi format images array
+const normalizeProduct = (item: any) => {
+  if (!item) return item;
+  let images = item.images;
+  if (typeof images === 'string') {
+    try {
+      images = JSON.parse(images);
+    } catch {
+      images = [images];
+    }
+  }
+  return {
+    ...item,
+    images: Array.isArray(images) ? images : [],
+  };
+};
+
 // GET all products
-productsRouter.get('/', (req: Request, res: Response) => {
+productsRouter.get('/', async (req: Request, res: Response) => {
   try {
     const { category, search, all } = req.query;
-    let query = 'SELECT * FROM products';
-    const conditions: string[] = [];
-    const params: (string | number)[] = [];
+
+    let query = supabase.from('products').select('*');
 
     if (all !== 'true') {
-      conditions.push('is_active = 1');
+      query = query.eq('is_active', 1);
     }
 
     if (category && category !== 'Semua') {
-      conditions.push('category = ?');
-      params.push(String(category));
+      query = query.eq('category', String(category));
     }
 
     if (search) {
-      conditions.push('(name LIKE ? OR description LIKE ?)');
-      params.push(`%${search}%`, `%${search}%`);
+      query = query.or(`name.ilike.%${search}%,description.ilike.%${search}%`);
     }
 
-    if (conditions.length > 0) {
-      query += ' WHERE ' + conditions.join(' AND ');
-    }
+    query = query.order('id', { ascending: true });
 
-    query += ' ORDER BY id ASC';
+    const { data, error } = await query;
 
-    const stmt = db.prepare(query);
-    const rows = stmt.all(...params) as any[];
+    if (error) throw error;
 
-    // Parse JSON images
-    const products = rows.map(item => ({
-      ...item,
-      images: JSON.parse(item.images || '[]')
-    }));
-
+    const products = (data || []).map(normalizeProduct);
     res.json({ success: true, data: products });
   } catch (error: any) {
-    console.error('Error fetching products:', error);
+    console.error('Error fetching products from Supabase:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
 // GET single product by ID or slug
-productsRouter.get('/:idOrSlug', (req: Request, res: Response) => {
+productsRouter.get('/:idOrSlug', async (req: Request, res: Response) => {
   try {
     const idOrSlug = String(req.params.idOrSlug);
     const isNumeric = /^\d+$/.test(idOrSlug);
 
-    let stmt;
+    let query = supabase.from('products').select('*');
+
     if (isNumeric) {
-      stmt = db.prepare('SELECT * FROM products WHERE id = ?');
+      query = query.eq('id', Number(idOrSlug));
     } else {
-      stmt = db.prepare('SELECT * FROM products WHERE slug = ?');
+      query = query.eq('slug', idOrSlug);
     }
 
-    const item = stmt.get(idOrSlug) as any;
-    if (!item) {
+    const { data, error } = await query.maybeSingle();
+
+    if (error) throw error;
+
+    if (!data) {
       return res.status(404).json({ success: false, error: 'Produk tidak ditemukan' });
     }
 
-    item.images = JSON.parse(item.images || '[]');
-    res.json({ success: true, data: item });
+    res.json({ success: true, data: normalizeProduct(data) });
   } catch (error: any) {
-    console.error('Error fetching product:', error);
+    console.error('Error fetching product from Supabase:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
 // POST create new product
-productsRouter.post('/', (req: Request, res: Response) => {
+productsRouter.post('/', async (req: Request, res: Response) => {
   try {
     const {
       name,
@@ -85,7 +94,7 @@ productsRouter.post('/', (req: Request, res: Response) => {
       badge,
       description,
       buy_link,
-      stock
+      stock,
     } = req.body;
 
     if (!name || !price || !category) {
@@ -95,38 +104,41 @@ productsRouter.post('/', (req: Request, res: Response) => {
     const generatedSlug = slug || name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
     const numPrice = Number(price) || 0;
     const priceFormatted = `Rp ${numPrice.toLocaleString('id-ID')}`;
-    const imagesJson = Array.isArray(images) ? JSON.stringify(images) : JSON.stringify([images || 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?q=80&w=800&auto=format&fit=crop']);
+    const imagesArray = Array.isArray(images)
+      ? images
+      : [images || 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?q=80&w=800&auto=format&fit=crop'];
 
-    const stmt = db.prepare(`
-      INSERT INTO products (name, slug, price, price_formatted, category, images, badge, description, buy_link, stock, is_active)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
-    `);
+    const { data, error } = await supabase
+      .from('products')
+      .insert([
+        {
+          name,
+          slug: generatedSlug,
+          price: numPrice,
+          price_formatted: priceFormatted,
+          category,
+          images: imagesArray,
+          badge: badge || '',
+          description: description || '',
+          buy_link: buy_link || 'https://wa.me/6282131653815',
+          stock: Number(stock) || 10,
+          is_active: 1,
+        },
+      ])
+      .select()
+      .single();
 
-    const result = stmt.run(
-      name,
-      generatedSlug,
-      numPrice,
-      priceFormatted,
-      category,
-      imagesJson,
-      badge || '',
-      description || '',
-      buy_link || 'https://wa.me/6282131653815',
-      Number(stock) || 10
-    );
+    if (error) throw error;
 
-    const newProduct = db.prepare('SELECT * FROM products WHERE id = ?').get(Number(result.lastInsertRowid)) as any;
-    newProduct.images = JSON.parse(newProduct.images || '[]');
-
-    res.status(201).json({ success: true, data: newProduct });
+    res.status(201).json({ success: true, data: normalizeProduct(data) });
   } catch (error: any) {
-    console.error('Error creating product:', error);
+    console.error('Error creating product in Supabase:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
 // PUT update product
-productsRouter.put('/:id', (req: Request, res: Response) => {
+productsRouter.put('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const {
@@ -139,73 +151,60 @@ productsRouter.put('/:id', (req: Request, res: Response) => {
       description,
       buy_link,
       stock,
-      is_active
+      is_active,
     } = req.body;
 
-    const existing = db.prepare('SELECT * FROM products WHERE id = ?').get(Number(id)) as any;
-    if (!existing) {
+    const updatePayload: Record<string, any> = {};
+
+    if (name !== undefined) updatePayload.name = name;
+    if (slug !== undefined) updatePayload.slug = slug;
+    if (price !== undefined) {
+      const numPrice = Number(price);
+      updatePayload.price = numPrice;
+      updatePayload.price_formatted = `Rp ${numPrice.toLocaleString('id-ID')}`;
+    }
+    if (category !== undefined) updatePayload.category = category;
+    if (images !== undefined) updatePayload.images = Array.isArray(images) ? images : [images];
+    if (badge !== undefined) updatePayload.badge = badge;
+    if (description !== undefined) updatePayload.description = description;
+    if (buy_link !== undefined) updatePayload.buy_link = buy_link;
+    if (stock !== undefined) updatePayload.stock = Number(stock);
+    if (is_active !== undefined) updatePayload.is_active = is_active ? 1 : 0;
+
+    const { data, error } = await supabase
+      .from('products')
+      .update(updatePayload)
+      .eq('id', Number(id))
+      .select()
+      .maybeSingle();
+
+    if (error) throw error;
+
+    if (!data) {
       return res.status(404).json({ success: false, error: 'Produk tidak ditemukan' });
     }
 
-    const numPrice = price !== undefined ? Number(price) : existing.price;
-    const priceFormatted = `Rp ${numPrice.toLocaleString('id-ID')}`;
-    const imagesJson = images !== undefined ? (Array.isArray(images) ? JSON.stringify(images) : JSON.stringify([images])) : existing.images;
-
-    const stmt = db.prepare(`
-      UPDATE products
-      SET name = ?,
-          slug = ?,
-          price = ?,
-          price_formatted = ?,
-          category = ?,
-          images = ?,
-          badge = ?,
-          description = ?,
-          buy_link = ?,
-          stock = ?,
-          is_active = ?
-      WHERE id = ?
-    `);
-
-    stmt.run(
-      name !== undefined ? name : existing.name,
-      slug !== undefined ? slug : existing.slug,
-      numPrice,
-      priceFormatted,
-      category !== undefined ? category : existing.category,
-      imagesJson,
-      badge !== undefined ? badge : existing.badge,
-      description !== undefined ? description : existing.description,
-      buy_link !== undefined ? buy_link : existing.buy_link,
-      stock !== undefined ? Number(stock) : existing.stock,
-      is_active !== undefined ? (is_active ? 1 : 0) : existing.is_active,
-      Number(id)
-    );
-
-    const updated = db.prepare('SELECT * FROM products WHERE id = ?').get(Number(id)) as any;
-    updated.images = JSON.parse(updated.images || '[]');
-
-    res.json({ success: true, data: updated });
+    res.json({ success: true, data: normalizeProduct(data) });
   } catch (error: any) {
-    console.error('Error updating product:', error);
+    console.error('Error updating product in Supabase:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
 // DELETE product
-productsRouter.delete('/:id', (req: Request, res: Response) => {
+productsRouter.delete('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const stmt = db.prepare('DELETE FROM products WHERE id = ?');
-    const result = stmt.run(Number(id));
+    const { error } = await supabase
+      .from('products')
+      .delete()
+      .eq('id', Number(id));
 
-    if (result.changes === 0) {
-      return res.status(404).json({ success: false, error: 'Produk tidak ditemukan' });
-    }
+    if (error) throw error;
 
     res.json({ success: true, message: 'Produk berhasil dihapus' });
   } catch (error: any) {
-    console.error('Error deleting product:', error);
+    console.error('Error deleting product from Supabase:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });

@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import { initDatabase } from './db.js';
+import { isSupabaseConfigured, supabase } from './supabase.js';
 import { productsRouter } from './routes/products.js';
 import { articlesRouter } from './routes/articles.js';
 import { ordersRouter } from './routes/orders.js';
@@ -13,20 +13,41 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Initialize SQLite database and tables
-initDatabase();
-
 // Middleware
 app.use(cors());
 app.use(express.json());
 
 // API Health Check
-app.get('/api/health', (_req, res) => {
+app.get('/api/health', async (_req, res) => {
+  const configured = isSupabaseConfigured();
+  let dbStatus = configured ? 'connected' : 'unconfigured';
+  let dbError: string | null = null;
+
+  if (configured) {
+    try {
+      const { error } = await supabase.from('products').select('id', { count: 'exact', head: true });
+      if (error) {
+        dbStatus = 'connection_error';
+        dbError = error.message;
+      } else {
+        dbStatus = 'active';
+      }
+    } catch (err: any) {
+      dbStatus = 'connection_error';
+      dbError = err.message;
+    }
+  }
+
   res.json({
     status: 'healthy',
     message: 'Salimna Platform Backend API is running smoothly',
-    database: 'SQLite (node:sqlite native)',
-    timestamp: new Date().toISOString()
+    database: {
+      provider: 'Supabase (PostgreSQL Cloud)',
+      configured,
+      status: dbStatus,
+      error: dbError,
+    },
+    timestamp: new Date().toISOString(),
   });
 });
 
@@ -46,11 +67,12 @@ app.use((req, res) => {
 });
 
 app.listen(PORT, () => {
+  const configured = isSupabaseConfigured();
   console.log(`
   🚀 ===============================================
      Salimna Full Stack Backend Server Ready!
      Port     : http://localhost:${PORT}
-     Database : SQLite (server/data/salimna.db)
+     Database : Supabase (PostgreSQL Cloud) [${configured ? 'Configured ✅' : 'Credentials Pending ⚠️'}]
      Health   : http://localhost:${PORT}/api/health
   ===============================================
   `);
