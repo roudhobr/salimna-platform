@@ -1,6 +1,9 @@
 node_modules/
 build/
 dist/
+*.zip
+dist.zip
+.vscode/
 coverage/
 .DS_Store
 *.log

@@ -83,6 +83,14 @@ export interface DashboardStats {
 const API_BASE = (import.meta.env.VITE_API_URL || '/api').replace(/\/$/, '');
 const PUBLIC_SETTINGS_KEYS = ['hero_image', 'hero_image_1', 'hero_image_2', 'hero_image_3'];
 
+const safeJson = async (res: Response): Promise<any> => {
+  try {
+    return await res.json();
+  } catch {
+    return null;
+  }
+};
+
 const normalizeProduct = (product: Product): Product => {
   let images: unknown = product.images;
   if (typeof images === 'string') {
@@ -178,9 +186,9 @@ export const api = {
     const res = await fetch(`${API_BASE}/admin/me`, {
       headers: await adminHeaders(false, token),
     });
-    const json = await res.json();
-    if (!res.ok) throw new Error(json.error || 'Sesi admin tidak valid');
-    return json.data;
+    const json = await safeJson(res);
+    if (!res.ok) throw new Error(json?.error || `Sesi admin tidak valid (${res.status} ${res.statusText || 'Error'})`);
+    return json?.data;
   },
 
   async getAdminOrders(status?: string): Promise<Order[]> {
@@ -190,9 +198,9 @@ export const api = {
     const res = await fetch(`${API_BASE}/admin/orders?${query.toString()}`, {
       headers: await adminHeaders(),
     });
-    const json = await res.json();
-    if (!res.ok) throw new Error(json.error || 'Gagal memuat daftar pesanan admin');
-    return json.data || [];
+    const json = await safeJson(res);
+    if (!res.ok) throw new Error(json?.error || 'Gagal memuat daftar pesanan admin');
+    return json?.data || [];
   },
 
   async deleteAdminOrder(id: number): Promise<void> {
@@ -200,8 +208,8 @@ export const api = {
       method: 'DELETE',
       headers: await adminHeaders(),
     });
-    const json = await res.json();
-    if (!res.ok) throw new Error(json.error || 'Gagal menghapus pesanan admin');
+    const json = await safeJson(res);
+    if (!res.ok) throw new Error(json?.error || 'Gagal menghapus pesanan admin');
   },
 
   async deleteOldAdminOrders(days: number, status: string): Promise<void> {
@@ -210,8 +218,8 @@ export const api = {
       method: 'DELETE',
       headers: await adminHeaders(),
     });
-    const json = await res.json();
-    if (!res.ok) throw new Error(json.error || 'Gagal menghapus pesanan lama');
+    const json = await safeJson(res);
+    if (!res.ok) throw new Error(json?.error || 'Gagal menghapus pesanan lama');
   },
 
   async exportAdminOrdersCsv(status?: string): Promise<string> {
@@ -239,9 +247,9 @@ export const api = {
       const res = await fetch(`${API_BASE}/products?${query}`, {
         headers: await adminHeaders(),
       });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || 'Gagal memuat produk admin');
-      return (json.data || []).map((product: Product) => normalizeProduct(product));
+      const json = await safeJson(res);
+      if (!res.ok) throw new Error(json?.error || 'Gagal memuat produk admin');
+      return (json?.data || []).map((product: Product) => normalizeProduct(product));
     }
 
     let query = supabase.from('products').select('*').order('id', { ascending: true });
@@ -285,8 +293,8 @@ export const api = {
       headers: await adminHeaders(true),
       body: JSON.stringify(data),
     });
-    const json = await res.json();
-    if (!res.ok) throw new Error(json.error || 'Gagal menambahkan produk');
+    const json = await safeJson(res);
+    if (!res.ok) throw new Error(json?.error || 'Gagal menambahkan produk');
     setProductsCache([...productsCache.filter((p) => p.id !== json.data.id), json.data]);
     return json.data;
   },
@@ -297,8 +305,8 @@ export const api = {
       headers: await adminHeaders(true),
       body: JSON.stringify(data),
     });
-    const json = await res.json();
-    if (!res.ok) throw new Error(json.error || 'Gagal memperbarui produk');
+    const json = await safeJson(res);
+    if (!res.ok) throw new Error(json?.error || 'Gagal memperbarui produk');
     setProductsCache(productsCache.map((p) => (p.id === json.data.id ? json.data : p)));
     return json.data;
   },
@@ -308,8 +316,8 @@ export const api = {
       method: 'DELETE',
       headers: await adminHeaders(),
     });
-    const json = await res.json();
-    if (!res.ok) throw new Error(json.error || 'Gagal menghapus produk');
+    const json = await safeJson(res);
+    if (!res.ok) throw new Error(json?.error || 'Gagal menghapus produk');
     setProductsCache(productsCache.filter((p) => p.id !== id));
   },
 
@@ -322,9 +330,9 @@ export const api = {
       const res = await fetch(`${API_BASE}/articles?${query}`, {
         headers: await adminHeaders(),
       });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || 'Gagal memuat artikel admin');
-      return json.data || [];
+      const json = await safeJson(res);
+      if (!res.ok) throw new Error(json?.error || 'Gagal memuat artikel admin');
+      return json?.data || [];
     }
 
     let query = supabase.from('articles').select('*').order('id', { ascending: false });
@@ -368,8 +376,8 @@ export const api = {
       headers: await adminHeaders(true),
       body: JSON.stringify(data),
     });
-    const json = await res.json();
-    if (!res.ok) throw new Error(json.error || 'Gagal menambahkan artikel');
+    const json = await safeJson(res);
+    if (!res.ok) throw new Error(json?.error || 'Gagal menambahkan artikel');
     setArticlesCache([...articlesCache.filter((a) => a.id !== json.data.id), json.data]);
     return json.data;
   },
@@ -380,8 +388,8 @@ export const api = {
       headers: await adminHeaders(true),
       body: JSON.stringify(data),
     });
-    const json = await res.json();
-    if (!res.ok) throw new Error(json.error || 'Gagal memperbarui artikel');
+    const json = await safeJson(res);
+    if (!res.ok) throw new Error(json?.error || 'Gagal memperbarui artikel');
     setArticlesCache(articlesCache.map((a) => (a.id === json.data.id ? json.data : a)));
     return json.data;
   },
@@ -391,8 +399,8 @@ export const api = {
       method: 'DELETE',
       headers: await adminHeaders(),
     });
-    const json = await res.json();
-    if (!res.ok) throw new Error(json.error || 'Gagal menghapus artikel');
+    const json = await safeJson(res);
+    if (!res.ok) throw new Error(json?.error || 'Gagal menghapus artikel');
     setArticlesCache(articlesCache.filter((a) => a.id !== id));
   },
 
@@ -410,16 +418,16 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
-    const json = await res.json();
-    if (!res.ok) throw new Error(json.error || 'Gagal membuat pesanan');
+    const json = await safeJson(res);
+    if (!res.ok) throw new Error(json?.error || 'Gagal membuat pesanan');
     return json.data;
   },
 
   async getOrders(): Promise<Order[]> {
     const res = await fetch(`${API_BASE}/orders`, { headers: await adminHeaders() });
-    if (!res.ok) throw new Error('Gagal memuat daftar pesanan');
-    const json = await res.json();
-    return json.data || [];
+    const json = await safeJson(res);
+    if (!res.ok) throw new Error(json?.error || 'Gagal memuat daftar pesanan');
+    return json?.data || [];
   },
 
   async getOrderReceipt(token: string): Promise<OrderReceipt> {
@@ -435,8 +443,8 @@ export const api = {
       headers: await adminHeaders(true),
       body: JSON.stringify({ status }),
     });
-    const json = await res.json();
-    if (!res.ok) throw new Error(json.error || 'Gagal memperbarui status pesanan');
+    const json = await safeJson(res);
+    if (!res.ok) throw new Error(json?.error || 'Gagal memperbarui status pesanan');
     return json.data;
   },
 
@@ -445,8 +453,8 @@ export const api = {
       method: 'DELETE',
       headers: await adminHeaders(),
     });
-    const json = await res.json();
-    if (!res.ok) throw new Error(json.error || 'Gagal menghapus pesanan');
+    const json = await safeJson(res);
+    if (!res.ok) throw new Error(json?.error || 'Gagal menghapus pesanan');
   },
 
   // Visitor contact form
@@ -462,8 +470,8 @@ export const api = {
   // Dashboard Stats
   async getStats(): Promise<DashboardStats> {
     const res = await fetch(`${API_BASE}/stats`, { headers: await adminHeaders() });
-    if (!res.ok) throw new Error('Gagal memuat statistik admin');
-    const json = await res.json();
+    const json = await safeJson(res);
+    if (!res.ok) throw new Error(json?.error || 'Gagal memuat statistik admin');
     return json.data;
   },
 
@@ -486,9 +494,9 @@ export const api = {
       headers: await adminHeaders(true),
       body: JSON.stringify(data),
     });
-    const json = await res.json();
-    if (!res.ok) throw new Error(json.error || 'Gagal menyimpan pengaturan situs');
-    const saved = (json.data || {}) as SiteSettings;
+    const json = await safeJson(res);
+    if (!res.ok) throw new Error(json?.error || 'Gagal menyimpan pengaturan situs');
+    const saved = (json?.data || {}) as SiteSettings;
     setSettingsCache(saved);
     return saved;
   },
