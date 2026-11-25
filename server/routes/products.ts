@@ -131,7 +131,11 @@ productsRouter.post('/', requireAdminAuth, async (req: Request, res: Response) =
     const priceFormatted = `Rp ${numPrice.toLocaleString('id-ID')}`;
     const imagesArray = Array.isArray(images)
       ? images
-      : [images || 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?q=80&w=800&auto=format&fit=crop'];
+      : typeof images === 'string'
+        ? (images.trim() ? [images.trim()] : [])
+        : images == null
+          ? []
+          : [images];
 
     if (imagesArray.length > 8 || imagesArray.some((image: unknown) => typeof image !== 'string' || image.length > 12_000_000)) {
       return res.status(400).json({ success: false, error: 'Jumlah atau ukuran gambar produk melebihi batas.' });

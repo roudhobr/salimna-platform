@@ -861,11 +861,13 @@ export default function AdminPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {products.map(p => (
                 <div key={p.id} className="p-4 rounded-[10px] border border-line flex gap-4 hover:border-ink/30 transition-colors">
-                  <img
-                    src={p.images?.[0] || 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?q=80&w=800&auto=format&fit=crop'}
-                    alt={p.name}
-                    className="w-20 h-24 rounded-[10px] object-cover"
-                  />
+                  {p.images?.[0] ? (
+                    <img src={p.images[0]} alt={p.name} className="h-24 w-20 rounded-[10px] object-cover" />
+                  ) : (
+                    <div className="grid h-24 w-20 place-items-center rounded-[10px] bg-paper text-muted" aria-label="Foto produk tidak tersedia">
+                      <ImageIcon className="h-6 w-6" />
+                    </div>
+                  )}
                   <div className="flex-1 flex flex-col justify-between">
                     <div>
                       <div className="flex items-center gap-2 mb-1">
@@ -1273,7 +1275,7 @@ export default function AdminPage() {
                       type="text"
                       value={draft.startsWith('data:') ? '' : draft}
                       onChange={(e) => handleHeroDraftChange(index, e.target.value)}
-                      placeholder="URL foto atau /hero-bg-1.jpg"
+                      placeholder="URL foto (opsional)"
                       className="w-full rounded-[10px] border border-line bg-white px-2.5 py-1.5 text-[11px] text-ink placeholder:text-muted focus:border-primary focus:outline-none"
                     />
                   </div>
@@ -1301,12 +1303,7 @@ export default function AdminPage() {
             </div>
 
             <p className="text-[11px] text-muted">
-              Ingin memakai foto lokal tanpa unggah? Letakkan{' '}
-              <code className="rounded bg-paper px-1">hero-bg-1.jpg</code>,{' '}
-              <code className="rounded bg-paper px-1">hero-bg-2.jpg</code>, dan{' '}
-              <code className="rounded bg-paper px-1">hero-bg-3.jpg</code> di folder{' '}
-              <code className="rounded bg-paper px-1">public/</code>. Atau satu file{' '}
-              <code className="rounded bg-paper px-1">hero-bg.jpg</code> untuk semua slide.
+              Foto yang diunggah akan disimpan di Supabase Storage. Jika belum ada foto tersimpan, hero hanya memakai latar grafis.
             </p>
 
             {settingsNotice && (

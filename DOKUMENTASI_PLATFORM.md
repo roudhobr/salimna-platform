@@ -26,13 +26,14 @@ Frontend mengakses API melalui prefix `/api`. Saat pengembangan, Vite berjalan p
 
 ### Halaman publik
 
-- **Beranda** menampilkan tiga slide hero, pengantar Salimna, ringkasan tulisan, dan koleksi toko. Slide hero dapat memakai foto yang diunggah admin atau gambar bawaan.
+- **Beranda** menampilkan tiga slide hero, pengantar Salimna, ringkasan tulisan, dan koleksi toko. Foto hero hanya berasal dari pengaturan Supabase; jika belum tersedia, slide menggunakan latar grafis tanpa foto bawaan.
 - **Artikel** menampilkan tulisan riset dengan kategori dan pencarian berdasarkan judul, kategori, deskripsi, isi, serta penulis. Artikel dapat dibuka untuk membaca isi lengkap.
 - **Toko** menampilkan katalog produk, filter kategori, informasi harga/stok, dan pilihan produk.
 - **Keranjang dan checkout** mengumpulkan nama, nomor WhatsApp, alamat, email opsional, serta item pesanan. Pesanan dibuat melalui API dan stok diproses lewat fungsi database.
 - **Konfirmasi WhatsApp** tersedia sebagai tautan chat setelah checkout. Pengunjung meninjau dan mengirim pesan dari aplikasi WhatsApp; server tidak mengirim pesan otomatis.
 - **Portal nota** menyediakan tautan nota untuk pesanan. Nota dapat dibuka dan dicetak atau disimpan sebagai PDF; data publiknya dibatasi pada nomor pesanan, tanggal, status, rincian item, dan total.
 - **Pemuatan data cepat** menggunakan cache memori dan `localStorage` untuk menampilkan data yang pernah dimuat sambil mengambil pembaruan dari server.
+- Jika belum ada data Supabase atau cache Supabase, artikel dan produk tidak diganti konten contoh. Foto yang kosong memakai placeholder, sedangkan hero memakai latar grafis tanpa foto bawaan.
 - Tampilan responsif untuk layar ponsel dan desktop.
 
 ### Panel admin (`/admin`)

@@ -108,7 +108,7 @@ articlesRouter.post('/', requireAdminAuth, async (req: Request, res: Response) =
           date: articleDate,
           description,
           content,
-          image: image || 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?q=80&w=800&auto=format&fit=crop',
+          image: typeof image === 'string' ? image : '',
           author: author || 'Tim Riset Salimna',
           read_time: read_time || '5 mnt',
           is_published: 1,

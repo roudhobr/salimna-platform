@@ -52,11 +52,6 @@ export default function Hero() {
       cached.hero_image_3 || '',
     ];
   });
-  const [staticHeroes, setStaticHeroes] = useState<string[]>([
-    '/hero-bg-1.jpg',
-    '/hero-bg-2.jpg',
-    '/hero-bg-3.jpg',
-  ]);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -73,8 +68,8 @@ export default function Hero() {
             settings.hero_image_3 || '',
           ]);
         })
-        .catch(() => {
-          // Abaikan: hero tetap memakai latar gradien bawaan.
+        .catch((error) => {
+          console.warn('Gagal memuat pengaturan hero dari Supabase:', error.message);
         });
     };
 
@@ -120,7 +115,7 @@ export default function Hero() {
         style={{ transform: `translateX(-${index * 100}%)` }}
       >
         {slides.map((slide, i) => {
-          const background = heroImages[i] || staticHeroes[i];
+          const background = heroImages[i];
           return (
             <div
               key={slide.title}
@@ -136,19 +131,11 @@ export default function Hero() {
                     aria-hidden="true"
                     className="absolute inset-0 h-full w-full object-cover"
                     onError={() => {
-                      if (heroImages[i]) {
-                        setHeroImages((prev) => {
-                          const next = [...prev];
-                          next[i] = '';
-                          return next;
-                        });
-                      } else {
-                        setStaticHeroes((prev) => {
-                          const next = [...prev];
-                          next[i] = '';
-                          return next;
-                        });
-                      }
+                      setHeroImages((prev) => {
+                        const next = [...prev];
+                        next[i] = '';
+                        return next;
+                      });
                     }}
                   />
                   <div className="absolute inset-0 bg-gradient-to-r from-ink/90 via-ink/75 to-ink/40" />
