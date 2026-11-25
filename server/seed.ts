@@ -5,8 +5,8 @@ async function seedSupabase() {
 
   if (!isSupabaseConfigured()) {
     console.warn(`
-  ⚠️  Kredensial SUPABASE_URL atau SUPABASE_ANON_KEY belum diisi di .env!
-  Silakan isi file .env terlebih dahulu dengan URL dan Key dari dashboard Supabase Anda,
+  ⚠️  SUPABASE_URL atau SUPABASE_SERVICE_ROLE_KEY belum diisi di .env!
+  Silakan isi file .env terlebih dahulu dengan URL dan service role key dari dashboard Supabase Anda,
   atau jalankan script SQL yang tersedia di 'supabase/schema.sql' langsung pada SQL Editor Supabase.
     `);
     process.exit(1);

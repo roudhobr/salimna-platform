@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Compass, Menu, X, ShoppingBag, Database } from 'lucide-react';
+import { Menu, X, ShoppingBag, Search } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
+import BrandLogo from './BrandLogo';
+
+const INSTAGRAM = 'https://instagram.com/salimna_official';
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
@@ -13,13 +16,12 @@ export default function Navbar() {
 
   const isHomePage = location.pathname === '/';
   const isShopPage = location.pathname === '/shop';
-  const isAboutPage = location.pathname === '/about';
+  const isArticlesPage = location.pathname === '/artikel' || location.pathname === '/articles';
   const isAdminPage = location.pathname === '/admin';
 
   const navLinks = [
     { name: 'Beranda', href: '#home', id: 'home' },
-    { name: 'Tentang Kami', href: '/about', id: 'about' },
-    { name: 'Artikel', href: '#research', id: 'research' },
+    { name: 'Artikel', href: '/artikel', id: 'artikel' },
     { name: 'Toko', href: '/shop', id: 'shop' },
   ];
 
@@ -32,30 +34,29 @@ export default function Navbar() {
       setActiveSection('shop');
       return;
     }
-    if (isAboutPage) {
-      setActiveSection('about');
+    if (isArticlesPage) {
+      setActiveSection('artikel');
       return;
     }
 
     const handleScroll = () => {
       if (!isHomePage) return;
 
-      const scrollPosition = window.scrollY + 100;
+      const scrollPosition = window.scrollY + 140;
 
-      if (scrollPosition < 500) {
+      if (scrollPosition < 420) {
         setActiveSection('home');
         return;
       }
 
-      const sections = ['research', 'shop'];
+      const sections = ['tulisan', 'toko'];
       for (const section of sections) {
         const element = document.getElementById(section);
         if (element) {
           const offsetTop = element.offsetTop;
           const offsetHeight = element.offsetHeight;
-
           if (scrollPosition >= offsetTop && scrollPosition < offsetTop + offsetHeight) {
-            setActiveSection(section);
+            setActiveSection(section === 'tulisan' ? 'artikel' : section);
             return;
           }
         }
@@ -65,136 +66,161 @@ export default function Navbar() {
     window.addEventListener('scroll', handleScroll);
     handleScroll();
     return () => window.removeEventListener('scroll', handleScroll);
-  }, [isHomePage, isShopPage, isAboutPage, isAdminPage]);
+  }, [isHomePage, isShopPage, isArticlesPage, isAdminPage]);
 
-  const handleScroll = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
-    if (href.startsWith('#')) {
-      e.preventDefault();
-      setIsOpen(false);
-      
-      if (href === '#home') {
-        if (!isHomePage) {
-          navigate('/');
-        } else {
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
-        return;
-      }
-
-      if (!isHomePage) {
-        navigate('/' + href);
-        return;
-      }
-      const target = document.querySelector(href);
-      if (target) {
-        target.scrollIntoView({ behavior: 'smooth' });
-      }
-    } else {
-      e.preventDefault();
-      setIsOpen(false);
-      navigate(href);
+  const goToSection = (hash: string) => {
+    if (!isHomePage) {
+      navigate('/' + hash);
+      return;
     }
+    const target = document.querySelector(hash);
+    if (target) target.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const handleNav = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
+    e.preventDefault();
+    setIsOpen(false);
+
+    if (href.startsWith('#')) {
+      if (href === '#home') {
+        if (!isHomePage) navigate('/');
+        else window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
+      }
+      goToSection(href);
+      return;
+    }
+
+    navigate(href);
   };
 
   return (
     <>
-      <motion.nav 
-        initial={{ y: -100, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ duration: 0.8, ease: 'easeOut' }}
-        className="fixed top-4 left-0 right-0 z-50 px-4 sm:px-12 flex justify-center"
-      >
-        <div className="bg-white/80 backdrop-blur-xl border border-blue-100 rounded-full py-2.5 px-5 md:py-3 md:px-8 flex items-center justify-between gap-4 md:gap-8 text-dark shadow-xl w-full max-w-3xl">
-          <Link 
-            to="/" 
-            onClick={() => {
-              window.scrollTo({ top: 0, behavior: 'smooth' });
-              setIsOpen(false);
-            }}
-            className="flex items-center gap-2 cursor-pointer"
+      {/* Announcement bar */}
+      <div className="bg-ink px-4 py-2 text-center text-[13px] text-white">
+        Memahami zaman. Menjaga nilai.{' '}
+        <a
+          href={INSTAGRAM}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="ml-1 font-semibold text-sun underline underline-offset-4 hover:text-white"
+        >
+          Ikuti @salimna_official
+        </a>
+      </div>
+
+      {/* Header */}
+      <header className="sticky top-0 z-50 border-b border-line bg-white">
+        <div className="wrap flex h-[68px] items-center justify-between gap-4">
+          {/* Mobile burger */}
+          <button
+            type="button"
+            onClick={() => setIsOpen((v) => !v)}
+            aria-label={isOpen ? 'Tutup menu' : 'Buka menu'}
+            className="grid h-10 w-10 place-items-center rounded-full text-ink hover:bg-paper md:hidden"
           >
-            <div className="bg-primary p-1.5 rounded-full shadow-md">
-              <Compass className="w-4 h-4 text-white" />
-            </div>
-            <span className="font-display font-bold text-lg md:text-xl tracking-tight text-dark italic">Salimna</span>
+            {isOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
+
+          {/* Logo */}
+          <Link
+            to="/"
+            onClick={() => {
+              setIsOpen(false);
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            className="flex items-center gap-2.5 font-display text-[22px] font-extrabold tracking-tight text-ink"
+            aria-label="Salimna"
+          >
+            <BrandLogo className="h-8 w-8" />
+            Salimna
           </Link>
 
-          {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center gap-6">
+          {/* Desktop nav */}
+          <nav className="hidden items-center gap-8 text-[15px] font-medium md:flex" aria-label="Menu utama">
             {navLinks.map((link) => (
-              <a 
-                key={link.name} 
+              <a
+                key={link.name}
                 href={link.href}
-                onClick={(e) => handleScroll(e, link.href)}
-                className="relative group py-1"
+                onClick={(e) => handleNav(e, link.href)}
+                className={`border-b-2 py-1.5 transition-colors ${
+                  activeSection === link.id
+                    ? 'border-primary text-primary'
+                    : 'border-transparent text-ink hover:border-primary hover:text-primary'
+                }`}
               >
-                <span className={`text-sm font-medium transition-colors ${activeSection === link.id ? 'text-primary font-bold' : 'text-dark/70 hover:text-primary'}`}>
-                  {link.name}
-                </span>
-                <span className={`absolute bottom-0 left-1/2 -translate-x-1/2 h-[1.5px] bg-primary transition-all duration-300 ${activeSection === link.id ? 'w-full opacity-100' : 'w-0 opacity-0 group-hover:w-full group-hover:opacity-100'}`} />
+                {link.name}
               </a>
             ))}
-          </div>
+          </nav>
 
-          <div className="flex items-center gap-2">
-            {/* Cart Button with Count Badge */}
+          {/* Tools */}
+          <div className="flex items-center justify-end gap-1">
             <button
-              onClick={() => setIsCartOpen(true)}
-              className="relative bg-primary/5 hover:bg-primary/10 text-primary p-2.5 rounded-full transition-all cursor-pointer flex items-center justify-center"
-              title="Keranjang Belanja"
+              type="button"
+              onClick={() => {
+                setIsOpen(false);
+                navigate('/artikel');
+              }}
+              aria-label="Cari tulisan"
+              className="grid h-10 w-10 place-items-center rounded-full text-ink hover:bg-paper"
             >
-              <ShoppingBag className="w-4 h-4" />
+              <Search className="h-5 w-5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsCartOpen(true)}
+              aria-label="Keranjang belanja"
+              className="relative grid h-10 w-10 place-items-center rounded-full text-ink hover:bg-paper"
+            >
+              <ShoppingBag className="h-5 w-5" />
               {totalCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-primary text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center shadow-md animate-scale">
+                <span className="absolute -right-0.5 -top-0.5 grid h-5 w-5 place-items-center rounded-full bg-primary text-[10px] font-bold text-white">
                   {totalCount}
                 </span>
               )}
             </button>
-
-            {/* Mobile Menu Button */}
-            <button 
-              className="md:hidden p-2 text-primary"
-              onClick={() => setIsOpen(!isOpen)}
-            >
-              {isOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-            </button>
           </div>
         </div>
-      </motion.nav>
 
-      {/* Mobile menu overlay */}
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="fixed inset-x-0 top-24 z-40 px-6 md:hidden"
-          >
-            <div className="bg-white/95 backdrop-blur-xl border border-blue-50 rounded-[30px] p-6 shadow-2xl flex flex-col gap-4">
-              {navLinks.map((link) => (
-                <a 
-                  key={link.name} 
-                  href={link.href}
-                  onClick={(e) => handleScroll(e, link.href)}
-                  className={`text-lg font-bold italic py-2 border-b border-blue-50/50 transition-colors ${activeSection === link.id ? 'text-primary' : 'text-dark/70'}`}
+        {/* Mobile menu */}
+        <AnimatePresence>
+          {isOpen && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.2 }}
+              className="overflow-hidden border-t border-line bg-white md:hidden"
+            >
+              <nav className="wrap flex flex-col py-3">
+                {navLinks.map((link) => (
+                  <a
+                    key={link.name}
+                    href={link.href}
+                    onClick={(e) => handleNav(e, link.href)}
+                    className={`border-b border-line/60 py-3 text-[15px] font-medium ${
+                      activeSection === link.id ? 'text-primary' : 'text-ink'
+                    }`}
+                  >
+                    {link.name}
+                  </a>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsOpen(false);
+                    setIsCartOpen(true);
+                  }}
+                  className="mt-4 flex items-center justify-center gap-2 rounded-full bg-primary py-3 text-sm font-semibold text-white"
                 >
-                  {link.name}
-                </a>
-              ))}
-              <button 
-                onClick={() => {
-                  setIsOpen(false);
-                  setIsCartOpen(true);
-                }}
-                className="mt-2 bg-primary text-white py-3.5 rounded-full font-bold shadow-lg flex items-center justify-center gap-2"
-              >
-                <ShoppingBag className="w-4 h-4" /> Keranjang ({totalCount})
-              </button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+                  <ShoppingBag className="h-4 w-4" /> Keranjang ({totalCount})
+                </button>
+              </nav>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </header>
     </>
   );
 }

@@ -32,7 +32,7 @@ export default function ArticleModal({ article, onClose }: ArticleModalProps) {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onClick={onClose}
-          className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity"
+          className="fixed inset-0 bg-ink/60 backdrop-blur-xs transition-opacity"
         />
 
         <div className="min-h-screen px-4 py-8 flex items-center justify-center">
@@ -41,22 +41,22 @@ export default function ArticleModal({ article, onClose }: ArticleModalProps) {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className="relative bg-white rounded-3xl max-w-3xl w-full overflow-hidden shadow-2xl z-10 my-8 text-black"
+            className="relative bg-white rounded-[14px] max-w-3xl w-full overflow-hidden shadow-[0_30px_80px_-30px_rgba(28,35,64,0.45)] z-10 my-8 text-ink"
           >
             {/* Close Button */}
             <button
               onClick={onClose}
-              className="absolute top-4 right-4 z-20 bg-white/80 hover:bg-white text-black p-2 rounded-full shadow-lg backdrop-blur-xs transition-all"
+              className="absolute top-4 right-4 z-20 bg-white/80 hover:bg-white text-ink p-2 rounded-full shadow-lg backdrop-blur-xs transition-all"
             >
               <X className="w-5 h-5" />
             </button>
 
             {/* Hero Image */}
-            <div className="relative h-72 sm:h-96 w-full overflow-hidden">
+            <div className="relative h-72 w-full overflow-hidden bg-paper sm:h-96">
               <img
                 src={article.image}
                 alt={article.title}
-                className="w-full h-full object-cover"
+                className="w-full h-full object-contain"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
               <div className="absolute bottom-6 left-6 right-6 text-white">
@@ -70,7 +70,7 @@ export default function ArticleModal({ article, onClose }: ArticleModalProps) {
             </div>
 
             {/* Metadata Bar */}
-            <div className="px-6 sm:px-10 py-4 bg-gray-50 border-b border-gray-100 flex flex-wrap items-center justify-between gap-4 text-xs text-black/60">
+            <div className="px-6 sm:px-10 py-4 bg-paper border-b border-line flex flex-wrap items-center justify-between gap-4 text-xs text-muted">
               <div className="flex items-center gap-4 flex-wrap">
                 <span className="flex items-center gap-1.5">
                   <User className="w-3.5 h-3.5 text-primary" /> {article.author}
@@ -92,24 +92,24 @@ export default function ArticleModal({ article, onClose }: ArticleModalProps) {
 
             {/* Article Content */}
             <div className="p-6 sm:p-10">
-              <p className="text-base sm:text-lg font-medium text-black/80 leading-relaxed mb-6 italic border-l-4 border-primary pl-4">
+              <p className="text-base sm:text-lg font-medium text-ink/80 leading-relaxed mb-6 italic border-l-4 border-primary pl-4">
                 "{article.description}"
               </p>
 
-              <div className="prose prose-slate max-w-none text-black/75 leading-relaxed space-y-4 text-sm sm:text-base">
+              <div className="prose prose-slate max-w-none text-ink/75 leading-relaxed space-y-4 text-sm sm:text-base">
                 {article.content.split('\n\n').map((paragraph, index) => (
                   <p key={index}>{paragraph}</p>
                 ))}
               </div>
 
-              <div className="mt-10 pt-6 border-t border-gray-100 flex items-center justify-between">
+              <div className="mt-10 pt-6 border-t border-line flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
                     <BookOpen className="w-5 h-5" />
                   </div>
                   <div>
-                    <div className="text-xs font-bold text-black">Pusat Riset Salimna</div>
-                    <div className="text-[11px] text-black/40">Diterbitkan secara digital di Salimna Platform</div>
+                    <div className="text-xs font-bold text-ink">Pusat Riset Salimna</div>
+                    <div className="text-[11px] text-muted">Diterbitkan secara digital di Salimna Platform</div>
                   </div>
                 </div>
                 <button

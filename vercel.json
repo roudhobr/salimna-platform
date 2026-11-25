@@ -2,6 +2,8 @@
   "rewrites": [
     { "source": "/admin", "destination": "/index.html" },
     { "source": "/shop", "destination": "/index.html" },
-    { "source": "/about", "destination": "/index.html" }
+    { "source": "/artikel", "destination": "/index.html" },
+    { "source": "/articles", "destination": "/index.html" },
+    { "source": "/nota/(.*)", "destination": "/index.html" }
   ]
 }

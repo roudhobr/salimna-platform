@@ -1,9 +1,10 @@
 import { Router, Request, Response } from 'express';
 import { supabase } from '../supabase.js';
+import { requireAdminAuth } from '../admin.js';
 
 export const statsRouter = Router();
 
-statsRouter.get('/', async (_req: Request, res: Response) => {
+statsRouter.get('/', requireAdminAuth, async (_req: Request, res: Response) => {
   try {
     // 1. Hitung jumlah produk aktif
     const { count: productsCount, error: prodErr } = await supabase

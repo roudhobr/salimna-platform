@@ -1,7 +1,15 @@
-import { Router, Request, Response } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import { supabase } from '../supabase.js';
+import { requireAdminAuth } from '../admin.js';
 
 export const productsRouter = Router();
+
+const requireAdminForAllProducts = (req: Request, res: Response, next: NextFunction) => {
+  if (req.query.all === 'true') {
+    return requireAdminAuth(req, res, next);
+  }
+  next();
+};
 
 // Helper untuk menormalisasi format images array
 const normalizeProduct = (item: any) => {
@@ -21,7 +29,7 @@ const normalizeProduct = (item: any) => {
 };
 
 // GET all products
-productsRouter.get('/', async (req: Request, res: Response) => {
+productsRouter.get('/', requireAdminForAllProducts, async (req: Request, res: Response) => {
   try {
     const { category, search, all } = req.query;
 
@@ -75,6 +83,10 @@ productsRouter.get('/:idOrSlug', async (req: Request, res: Response) => {
       return res.status(404).json({ success: false, error: 'Produk tidak ditemukan' });
     }
 
+    if (data.is_active !== 1) {
+      return res.status(404).json({ success: false, error: 'Produk tidak ditemukan' });
+    }
+
     res.json({ success: true, data: normalizeProduct(data) });
   } catch (error: any) {
     console.error('Error fetching product from Supabase:', error);
@@ -83,7 +95,7 @@ productsRouter.get('/:idOrSlug', async (req: Request, res: Response) => {
 });
 
 // POST create new product
-productsRouter.post('/', async (req: Request, res: Response) => {
+productsRouter.post('/', requireAdminAuth, async (req: Request, res: Response) => {
   try {
     const {
       name,
@@ -97,31 +109,48 @@ productsRouter.post('/', async (req: Request, res: Response) => {
       stock,
     } = req.body;
 
-    if (!name || !price || !category) {
+    if (
+      typeof name !== 'string' ||
+      !name.trim() ||
+      name.trim().length > 160 ||
+      typeof category !== 'string' ||
+      !category.trim()
+    ) {
       return res.status(400).json({ success: false, error: 'Nama, harga, dan kategori wajib diisi.' });
     }
 
-    const generatedSlug = slug || name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-    const numPrice = Number(price) || 0;
+    const numPrice = Number(price);
+    const numStock = stock === undefined ? 10 : Number(stock);
+    if (!Number.isSafeInteger(numPrice) || numPrice < 1 || !Number.isSafeInteger(numStock) || numStock < 0) {
+      return res.status(400).json({ success: false, error: 'Harga atau stok produk tidak valid.' });
+    }
+
+    const generatedSlug = typeof slug === 'string' && slug.trim()
+      ? slug.trim()
+      : name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
     const priceFormatted = `Rp ${numPrice.toLocaleString('id-ID')}`;
     const imagesArray = Array.isArray(images)
       ? images
       : [images || 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?q=80&w=800&auto=format&fit=crop'];
 
+    if (imagesArray.length > 8 || imagesArray.some((image: unknown) => typeof image !== 'string' || image.length > 12_000_000)) {
+      return res.status(400).json({ success: false, error: 'Jumlah atau ukuran gambar produk melebihi batas.' });
+    }
+
     const { data, error } = await supabase
       .from('products')
       .insert([
         {
-          name,
+          name: name.trim(),
           slug: generatedSlug,
           price: numPrice,
           price_formatted: priceFormatted,
-          category,
+          category: category.trim(),
           images: imagesArray,
           badge: badge || '',
           description: description || '',
           buy_link: buy_link || 'https://wa.me/6282131653815',
-          stock: Number(stock) || 10,
+          stock: numStock,
           is_active: 1,
         },
       ])
@@ -138,7 +167,7 @@ productsRouter.post('/', async (req: Request, res: Response) => {
 });
 
 // PUT update product
-productsRouter.put('/:id', async (req: Request, res: Response) => {
+productsRouter.put('/:id', requireAdminAuth, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const {
@@ -156,19 +185,39 @@ productsRouter.put('/:id', async (req: Request, res: Response) => {
 
     const updatePayload: Record<string, any> = {};
 
-    if (name !== undefined) updatePayload.name = name;
+    if (name !== undefined) {
+      if (typeof name !== 'string' || !name.trim() || name.trim().length > 160) {
+        return res.status(400).json({ success: false, error: 'Nama produk tidak valid.' });
+      }
+      updatePayload.name = name.trim();
+    }
     if (slug !== undefined) updatePayload.slug = slug;
     if (price !== undefined) {
       const numPrice = Number(price);
+      if (!Number.isSafeInteger(numPrice) || numPrice < 1) {
+        return res.status(400).json({ success: false, error: 'Harga produk tidak valid.' });
+      }
       updatePayload.price = numPrice;
       updatePayload.price_formatted = `Rp ${numPrice.toLocaleString('id-ID')}`;
     }
     if (category !== undefined) updatePayload.category = category;
-    if (images !== undefined) updatePayload.images = Array.isArray(images) ? images : [images];
+    if (images !== undefined) {
+      const imagesArray = Array.isArray(images) ? images : [images];
+      if (imagesArray.length > 8 || imagesArray.some((image: unknown) => typeof image !== 'string' || image.length > 12_000_000)) {
+        return res.status(400).json({ success: false, error: 'Jumlah atau ukuran gambar produk melebihi batas.' });
+      }
+      updatePayload.images = imagesArray;
+    }
     if (badge !== undefined) updatePayload.badge = badge;
     if (description !== undefined) updatePayload.description = description;
     if (buy_link !== undefined) updatePayload.buy_link = buy_link;
-    if (stock !== undefined) updatePayload.stock = Number(stock);
+    if (stock !== undefined) {
+      const numStock = Number(stock);
+      if (!Number.isSafeInteger(numStock) || numStock < 0) {
+        return res.status(400).json({ success: false, error: 'Stok produk tidak valid.' });
+      }
+      updatePayload.stock = numStock;
+    }
     if (is_active !== undefined) updatePayload.is_active = is_active ? 1 : 0;
 
     const { data, error } = await supabase
@@ -192,17 +241,22 @@ productsRouter.put('/:id', async (req: Request, res: Response) => {
 });
 
 // DELETE product
-productsRouter.delete('/:id', async (req: Request, res: Response) => {
+productsRouter.delete('/:id', requireAdminAuth, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('products')
-      .delete()
-      .eq('id', Number(id));
+      .update({ is_active: 0 })
+      .eq('id', Number(id))
+      .select('id')
+      .maybeSingle();
 
     if (error) throw error;
+    if (!data) {
+      return res.status(404).json({ success: false, error: 'Produk tidak ditemukan' });
+    }
 
-    res.json({ success: true, message: 'Produk berhasil dihapus' });
+    res.json({ success: true, message: 'Produk berhasil diarsipkan' });
   } catch (error: any) {
     console.error('Error deleting product from Supabase:', error);
     res.status(500).json({ success: false, error: error.message });

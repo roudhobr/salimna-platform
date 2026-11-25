@@ -1,114 +1,117 @@
 import React from 'react';
-import { motion } from 'motion/react';
-import { Send, Instagram, Twitter, Youtube, Facebook, Compass } from 'lucide-react';
+import { Instagram, MessageCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { openScope } from './ScopeDialog';
+import BrandLogo from './BrandLogo';
+
+const INSTAGRAM = 'https://instagram.com/salimna_official';
+const WHATSAPP = 'https://wa.me/6282131653815';
 
 export default function Footer() {
   const navigate = useNavigate();
 
-  const handleSocialClick = (platform: string) => {
-    alert(`Mengarahkan ke Salimna di ${platform}...`);
-  };
-
-  const handleLinkClick = (e: React.MouseEvent, link: string) => {
-    const linkMap: Record<string, string> = {
-      'Beranda': '/',
-      'Tentang Kami': '/about',
-      'Artikel': '/#research',
-      'Katalog Toko': '/shop',
-      'Admin Dashboard': '/admin',
-    };
-
-    if (linkMap[link]) {
-      e.preventDefault();
-      const target = linkMap[link];
-      if (target.startsWith('/#')) {
-        if (window.location.pathname === '/') {
-          document.querySelector(target.substring(1))?.scrollIntoView({ behavior: 'smooth' });
-        } else {
-          navigate(target);
-        }
+  const handleNav = (e: React.MouseEvent, target: string) => {
+    e.preventDefault();
+    if (target.startsWith('/#')) {
+      if (window.location.pathname === '/') {
+        document.querySelector(target.substring(1))?.scrollIntoView({ behavior: 'smooth' });
       } else {
         navigate(target);
       }
+      return;
     }
+    navigate(target);
   };
 
-  const footerLinks = [
-    { title: 'Menu Utama', links: ['Beranda', 'Tentang Kami', 'Artikel', 'Katalog Toko'] },
-  ];
-
   return (
-    <footer className="px-6 sm:px-12 pt-12 pb-12 bg-white overflow-hidden relative">
-      {/* Contact CTA Section */}
-      <div className="max-w-4xl mx-auto mb-16 text-center">
-        <div className="bg-primary rounded-[30px] p-6 md:p-10 flex flex-col items-center justify-center gap-6 relative overflow-hidden shadow-xl">
-          <div className="relative z-10 w-full max-w-sm text-white">
-             <h2 className="font-display text-2xl md:text-4xl font-bold tracking-tight mb-2 italic">
-                Gabung Komunitas
-             </h2>
-             <p className="text-white/70 text-xs md:text-sm mb-6 font-medium">
-                Dapatkan info terbaru dari Salimna langsung melalui komunitas kami.
-             </p>
-             
-             <a 
-               href="https://wa.me/6282131653815"
-               target="_blank"
-               rel="noopener noreferrer"
-               className="w-full bg-white text-primary py-3 px-8 rounded-full font-bold text-sm flex items-center justify-center gap-2 hover:scale-105 transition-transform shadow-md"
-             >
-                Gabung Sekarang <Send className="w-4 h-4" />
-             </a>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Footer Content */}
-      <div className="max-w-7xl mx-auto border-t border-blue-50 pt-20">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-20">
-          <div className="lg:col-span-2">
-            <div className="flex items-center gap-2 mb-6 cursor-pointer" onClick={() => navigate('/')}>
-               <div className="bg-primary p-1.5 rounded-full shadow-lg">
-                  <Compass className="w-4 h-4 text-white" />
-               </div>
-               <span className="font-display font-bold text-2xl tracking-tight text-dark">Salimna</span>
-            </div>
-            <p className="text-dark/40 text-sm max-w-xs leading-relaxed italic">
-               Menjelajahi fenomena kehidupan melalui kacamata sosial, alam, dan agama.
+    <footer className="border-t border-line bg-paper pt-12">
+      <div className="wrap">
+        <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1.2fr]">
+          {/* Brand */}
+          <div className="md:col-span-2 lg:col-span-1">
+            <button
+              type="button"
+              onClick={() => navigate('/')}
+              className="flex items-center gap-2.5 font-display text-[22px] font-extrabold tracking-tight text-ink"
+            >
+              <BrandLogo className="h-8 w-8" />
+              Salimna
+            </button>
+            <p className="mt-3 max-w-[320px] text-sm text-muted">
+              Memahami zaman. Menjaga nilai. Media dan komunitas untuk wawasan dan keilmuan seputar
+              sosial, lingkungan, dan Islam.
             </p>
+            <div className="mt-4 flex gap-2">
+              <a
+                href={INSTAGRAM}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Instagram"
+                className="grid h-9 w-9 place-items-center rounded-md border border-ink text-ink transition hover:bg-ink hover:text-white"
+              >
+                <Instagram className="h-[17px] w-[17px]" />
+              </a>
+              <a
+                href={WHATSAPP}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="WhatsApp"
+                className="grid h-9 w-9 place-items-center rounded-md border border-ink text-ink transition hover:bg-ink hover:text-white"
+              >
+                <MessageCircle className="h-[17px] w-[17px]" />
+              </a>
+            </div>
           </div>
 
-          {footerLinks.map((col) => (
-            <div key={col.title}>
-              <h4 className="font-bold text-sm uppercase tracking-widest mb-6 opacity-60 text-dark italic">{col.title}</h4>
-              <ul className="space-y-4">
-                {col.links.map(link => (
-                  <li key={link}>
-                    <a 
-                      href="#" 
-                      onClick={(e) => handleLinkClick(e, link)}
-                      className="text-dark/40 hover:text-primary text-sm transition-colors"
-                    >
-                      {link}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
+          {/* Menu utama */}
+          <div>
+            <h4 className="mb-3 border-b border-ink pb-2 font-display text-[15px] font-bold text-ink">
+              Menu utama
+            </h4>
+            <ul className="grid gap-2 text-sm text-muted">
+              <li><a href="/" onClick={(e) => handleNav(e, '/')} className="hover:text-primary">Beranda</a></li>
+              <li><a href="/artikel" onClick={(e) => handleNav(e, '/artikel')} className="hover:text-primary">Artikel</a></li>
+              <li><a href="/shop" onClick={(e) => handleNav(e, '/shop')} className="hover:text-primary">Katalog Toko</a></li>
+            </ul>
+          </div>
+
+          {/* Lingkup */}
+          <div>
+            <h4 className="mb-3 border-b border-ink pb-2 font-display text-[15px] font-bold text-ink">
+              Lingkup
+            </h4>
+            <ul className="grid gap-2 text-sm text-muted">
+              <li><button type="button" onClick={openScope} className="hover:text-primary">Fenomena Sosial</button></li>
+              <li><button type="button" onClick={openScope} className="hover:text-primary">Lingkungan Hidup</button></li>
+              <li><button type="button" onClick={openScope} className="hover:text-primary">Praktik Keagamaan</button></li>
+            </ul>
+          </div>
+
+          {/* Hubungi */}
+          <div className="md:col-span-2 lg:col-span-1">
+            <h4 className="mb-3 border-b border-ink pb-2 font-display text-[15px] font-bold text-ink">
+              Hubungi kami
+            </h4>
+            <p className="text-sm text-muted">
+              Pertanyaan soal tulisan, pesanan, atau kerja sama? Kirim pesan lewat Instagram atau
+              WhatsApp.
+            </p>
+            <a
+              href={WHATSAPP}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline"
+            >
+              Chat WhatsApp
+            </a>
+          </div>
         </div>
 
-        {/* Bottom Bar */}
-        <div className="flex flex-col md:flex-row items-center justify-between gap-6 pt-12 border-t border-blue-50">
-          <div className="text-[10px] text-dark/20 uppercase font-bold tracking-widest">
-            Hak Cipta © 2026 Salimna. Seluruh Hak Dilindungi.
-          </div>
-          <div className="flex items-center gap-6">
-            <Instagram onClick={() => handleSocialClick('Instagram')} className="w-5 h-5 text-dark/40 hover:text-primary cursor-pointer transition-colors" />
-            <Twitter onClick={() => handleSocialClick('Twitter')} className="w-5 h-5 text-dark/40 hover:text-primary cursor-pointer transition-colors" />
-            <Youtube onClick={() => handleSocialClick('Youtube')} className="w-5 h-5 text-dark/40 hover:text-primary cursor-pointer transition-colors" />
-            <Facebook onClick={() => handleSocialClick('Facebook')} className="w-5 h-5 text-dark/40 hover:text-primary cursor-pointer transition-colors" />
-          </div>
+        <div className="mt-9 flex flex-wrap items-center justify-between gap-3 border-t border-line py-4 text-[13px] text-muted">
+          <span>© 2026 Salimna. Seluruh hak dilindungi.</span>
+          <a href={INSTAGRAM} target="_blank" rel="noopener noreferrer" className="hover:text-primary">
+            @salimna_official
+          </a>
         </div>
       </div>
     </footer>

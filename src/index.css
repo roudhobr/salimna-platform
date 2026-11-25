@@ -1,31 +1,125 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700;9..144,800&family=Inter:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Outfit", sans-serif;
-  --color-primary: #3B82F6;
-  --color-dark: #0A0A0A;
-  --color-card: #151619;
+  --font-display: "Fraunces", Georgia, "Times New Roman", serif;
+
+  --color-ink: #1c2340;
+  --color-muted: #5d6272;
+  --color-line: #e3dccb;
+  --color-paper: #f6f1e7;
+  --color-primary: #0295b0;
+  --color-primary-dark: #0e6b7d;
+  --color-sun: #e0a82e;
+  --color-rust: #b5483f;
+  --color-navy: #3a4a96;
+  --color-leaf: #2f7d5b;
+
+  /* alias lama agar komponen yang belum disentuh tetap berfungsi */
+  --color-dark: #1c2340;
+  --color-card: #ffffff;
 }
 
 @layer base {
-  body {
-    @apply bg-dark text-white font-sans antialiased;
+  html {
+    scroll-behavior: smooth;
   }
+  body {
+    @apply bg-white text-ink font-sans antialiased;
+  }
+  ::selection {
+    background-color: var(--color-primary);
+    color: #fff;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  .wrap {
+    width: 100%;
+    max-width: 1180px;
+    margin-inline: auto;
+    padding-inline: 1.5rem;
+  }
+
+  .section-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    border-bottom: 2px solid var(--color-ink);
+    padding-bottom: 0.625rem;
+    margin-bottom: 1.5rem;
+  }
+  .section-head h2 {
+    font-family: var(--font-display);
+    font-size: 1.375rem;
+    line-height: 1.2;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    color: var(--color-ink);
+  }
+  @media (min-width: 768px) {
+    .section-head h2 {
+      font-size: 1.5rem;
+    }
+  }
+  .section-head a,
+  .section-head button {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--color-primary);
+    white-space: nowrap;
+  }
+  .section-head a:hover,
+  .section-head button:hover {
+    text-decoration: underline;
+  }
+}
+
+/* Dialog (Lingkup Pembahasan) */
+dialog[open] {
+  animation: salimna-pop 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+@keyframes salimna-pop {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+dialog::backdrop {
+  background: rgba(28, 35, 64, 0.6);
+  backdrop-filter: blur(4px);
+}
+body:has(dialog[open]) {
+  overflow: hidden;
 }
 
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
+  width: 10px;
 }
 ::-webkit-scrollbar-track {
-  background: #0A0A0A;
+  background: var(--color-paper);
 }
 ::-webkit-scrollbar-thumb {
-  background: #252525;
+  background: #c9c2b2;
   border-radius: 10px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #333;
+  background: #b3ab99;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
 }

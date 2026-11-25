@@ -3,23 +3,6 @@ import { supabase } from '../supabase.js';
 
 export const inquiriesRouter = Router();
 
-// GET all inquiries
-inquiriesRouter.get('/', async (_req: Request, res: Response) => {
-  try {
-    const { data, error } = await supabase
-      .from('inquiries')
-      .select('*')
-      .order('id', { ascending: false });
-
-    if (error) throw error;
-
-    res.json({ success: true, data: data || [] });
-  } catch (error: any) {
-    console.error('Error fetching inquiries from Supabase:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
 // POST inquiry
 inquiriesRouter.post('/', async (req: Request, res: Response) => {
   try {

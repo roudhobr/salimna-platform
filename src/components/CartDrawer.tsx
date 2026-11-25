@@ -34,7 +34,7 @@ export default function CartDrawer() {
       setIsSubmitting(true);
       const created = await api.createOrder({
         customer_name: formData.customer_name,
-        customer_email: formData.customer_email || 'customer@salimna.id',
+        customer_email: formData.customer_email,
         customer_phone: formData.customer_phone,
         shipping_address: formData.shipping_address,
         items: items.map(i => ({
@@ -80,7 +80,7 @@ export default function CartDrawer() {
                 setIsCheckingOut(false);
               }
             }}
-            className="absolute inset-0 bg-black/50 backdrop-blur-xs"
+            className="absolute inset-0 bg-ink/50 backdrop-blur-xs"
           />
 
           <div className="fixed inset-y-0 right-0 max-w-full flex pl-10">
@@ -92,17 +92,17 @@ export default function CartDrawer() {
               className="w-screen max-w-md bg-white shadow-2xl flex flex-col justify-between"
             >
               {/* Header */}
-              <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+              <div className="p-6 border-b border-line flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <div className="bg-primary/10 text-primary p-2 rounded-xl">
+                  <div className="bg-primary/10 text-primary p-2 rounded-[10px]">
                     <ShoppingBag className="w-5 h-5" />
                   </div>
                   <div>
-                    <h2 className="font-display font-bold text-lg text-black">
+                    <h2 className="font-display font-bold text-lg text-ink">
                       {orderSuccess ? 'Pesanan Berhasil!' : isCheckingOut ? 'Checkout Pesanan' : 'Keranjang Belanja'}
                     </h2>
-                    <p className="text-xs text-black/50">
-                      {orderSuccess ? 'Tersimpan di database SQLite' : `${totalCount} item dalam keranjang`}
+                    <p className="text-xs text-muted">
+                      {orderSuccess ? 'Pesanan tersimpan di Supabase' : `${totalCount} item dalam keranjang`}
                     </p>
                   </div>
                 </div>
@@ -112,7 +112,7 @@ export default function CartDrawer() {
                     setIsCheckingOut(false);
                     setOrderSuccess(null);
                   }}
-                  className="p-2 text-black/40 hover:text-black rounded-full hover:bg-gray-100 transition-colors"
+                  className="p-2 text-muted hover:text-ink rounded-full hover:bg-paper transition-colors"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -129,23 +129,33 @@ export default function CartDrawer() {
                     >
                       <CheckCircle2 className="w-10 h-10" />
                     </motion.div>
-                    <h3 className="font-display text-xl font-bold text-black mb-1">Terima Kasih!</h3>
-                    <p className="text-sm text-black/60 mb-4">
+                    <h3 className="font-display text-xl font-bold text-ink mb-1">Terima Kasih!</h3>
+                    <p className="text-sm text-muted mb-4">
                       Pesanan Anda telah berhasil tercatat di sistem kami.
                     </p>
 
-                    <div className="bg-gray-50 rounded-2xl p-4 text-left mb-6 border border-gray-100">
-                      <div className="text-xs text-black/40 uppercase font-semibold mb-1">Nomor Pesanan</div>
+                    <div className="bg-paper rounded-[10px] p-4 text-left mb-6 border border-line">
+                      <div className="text-xs text-muted uppercase font-semibold mb-1">Nomor Pesanan</div>
                       <div className="font-mono font-bold text-primary text-base mb-3">{orderSuccess.order_number}</div>
-                      <div className="text-xs text-black/60">
+                      <div className="text-xs text-muted">
                         <span className="font-bold">Penerima:</span> {orderSuccess.customer_name} ({orderSuccess.customer_phone})
                       </div>
-                      <div className="text-xs text-black/60 mt-1">
+                      <div className="text-xs text-muted mt-1">
                         <span className="font-bold">Total Pembayaran:</span> Rp {Number(orderSuccess.total_amount).toLocaleString('id-ID')}
                       </div>
                     </div>
 
                     <div className="flex flex-col gap-3">
+                      {orderSuccess.receipt_token && (
+                        <a
+                          href={`/nota/${encodeURIComponent(orderSuccess.receipt_token)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="w-full rounded-full border border-primary px-6 py-3 text-sm font-bold text-primary transition-colors hover:bg-primary/5"
+                        >
+                          Lihat Nota Online <ArrowRight className="ml-1 inline h-4 w-4" />
+                        </a>
+                      )}
                       <button
                         onClick={handleWhatsAppRedirect}
                         className="w-full bg-[#25D366] hover:bg-[#20ba59] text-white py-3 px-6 rounded-full font-bold text-sm flex items-center justify-center gap-2 shadow-md transition-all"
@@ -157,7 +167,7 @@ export default function CartDrawer() {
                           setOrderSuccess(null);
                           setIsCartOpen(false);
                         }}
-                        className="text-xs font-semibold text-black/60 hover:text-black py-2"
+                        className="text-xs font-semibold text-muted hover:text-ink py-2"
                       >
                         Selesai & Lanjut Belanja
                       </button>
@@ -166,7 +176,7 @@ export default function CartDrawer() {
                 ) : isCheckingOut ? (
                   <form id="checkout-form" onSubmit={handleSubmitOrder} className="space-y-4">
                     <div>
-                      <label className="block text-xs font-bold text-black mb-1">Nama Lengkap *</label>
+                      <label className="block text-xs font-bold text-ink mb-1">Nama Lengkap *</label>
                       <input
                         type="text"
                         name="customer_name"
@@ -174,11 +184,11 @@ export default function CartDrawer() {
                         value={formData.customer_name}
                         onChange={handleInputChange}
                         placeholder="Contoh: Ahmad Fauzi"
-                        className="w-full text-sm px-4 py-2.5 rounded-xl border border-gray-300 bg-white text-black placeholder:text-black/40 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                        className="w-full text-sm px-4 py-2.5 rounded-[10px] border border-line bg-white text-ink placeholder:text-muted focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-bold text-black mb-1">Nomor WhatsApp *</label>
+                      <label className="block text-xs font-bold text-ink mb-1">Nomor WhatsApp *</label>
                       <input
                         type="tel"
                         name="customer_phone"
@@ -186,22 +196,22 @@ export default function CartDrawer() {
                         value={formData.customer_phone}
                         onChange={handleInputChange}
                         placeholder="08123456789"
-                        className="w-full text-sm px-4 py-2.5 rounded-xl border border-gray-300 bg-white text-black placeholder:text-black/40 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                        className="w-full text-sm px-4 py-2.5 rounded-[10px] border border-line bg-white text-ink placeholder:text-muted focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-bold text-black mb-1">Email</label>
+                      <label className="block text-xs font-bold text-ink mb-1">Email</label>
                       <input
                         type="email"
                         name="customer_email"
                         value={formData.customer_email}
                         onChange={handleInputChange}
                         placeholder="nama@email.com"
-                        className="w-full text-sm px-4 py-2.5 rounded-xl border border-gray-300 bg-white text-black placeholder:text-black/40 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                        className="w-full text-sm px-4 py-2.5 rounded-[10px] border border-line bg-white text-ink placeholder:text-muted focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-bold text-black mb-1">Alamat Lengkap Pengiriman *</label>
+                      <label className="block text-xs font-bold text-ink mb-1">Alamat Lengkap Pengiriman *</label>
                       <textarea
                         name="shipping_address"
                         required
@@ -209,28 +219,28 @@ export default function CartDrawer() {
                         value={formData.shipping_address}
                         onChange={handleInputChange}
                         placeholder="Jalan, No Rumah, Kelurahan, Kecamatan, Kota/Kab, Kode Pos"
-                        className="w-full text-sm px-4 py-2.5 rounded-xl border border-gray-300 bg-white text-black placeholder:text-black/40 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                        className="w-full text-sm px-4 py-2.5 rounded-[10px] border border-line bg-white text-ink placeholder:text-muted focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-bold text-black mb-1">Catatan Tambahan (Opsional)</label>
+                      <label className="block text-xs font-bold text-ink mb-1">Catatan Tambahan (Opsional)</label>
                       <input
                         type="text"
                         name="notes"
                         value={formData.notes}
                         onChange={handleInputChange}
                         placeholder="Ukuran khusus, instruksi kurir, dll."
-                        className="w-full text-sm px-4 py-2.5 rounded-xl border border-gray-300 bg-white text-black placeholder:text-black/40 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                        className="w-full text-sm px-4 py-2.5 rounded-[10px] border border-line bg-white text-ink placeholder:text-muted focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                       />
                     </div>
                   </form>
                 ) : items.length === 0 ? (
                   <div className="text-center py-16">
-                    <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4 text-black/30">
+                    <div className="w-16 h-16 bg-paper rounded-full flex items-center justify-center mx-auto mb-4 text-muted">
                       <ShoppingBag className="w-8 h-8" />
                     </div>
-                    <h3 className="font-display font-bold text-base text-black mb-1">Keranjang Masih Kosong</h3>
-                    <p className="text-xs text-black/50 max-w-xs mx-auto">
+                    <h3 className="font-display font-bold text-base text-ink mb-1">Keranjang Masih Kosong</h3>
+                    <p className="text-xs text-muted max-w-xs mx-auto">
                       Jelajahi koleksi kami dan temukan busana berfilosofi yang sesuai untuk Anda.
                     </p>
                   </div>
@@ -239,45 +249,49 @@ export default function CartDrawer() {
                     {items.map(item => (
                       <div
                         key={`${item.id}-${item.size}`}
-                        className="flex gap-4 p-3 rounded-2xl border border-gray-100 hover:border-gray-200 transition-colors"
+                        className="flex gap-4 p-3 rounded-[10px] border border-line hover:border-line transition-colors"
                       >
                         <img
                           src={item.image}
                           alt={item.name}
-                          className="w-20 h-20 rounded-xl object-cover"
+                          className="w-20 h-20 rounded-[10px] object-cover"
                         />
                         <div className="flex-1 flex flex-col justify-between">
                           <div>
                             <div className="flex justify-between items-start">
-                              <h4 className="font-display font-bold text-sm text-black line-clamp-1">{item.name}</h4>
+                              <h4 className="font-display font-bold text-sm text-ink line-clamp-1">{item.name}</h4>
                               <button
                                 onClick={() => removeFromCart(item.id, item.size)}
-                                className="text-black/30 hover:text-red-500 transition-colors p-1"
+                                className="text-muted hover:text-red-500 transition-colors p-1"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
                               </button>
                             </div>
-                            <p className="text-[11px] text-black/50">Ukuran: <span className="font-semibold text-black">{item.size}</span></p>
+                            <p className="text-[11px] text-muted">Ukuran: <span className="font-semibold text-ink">{item.size}</span></p>
+                            {item.stock !== undefined && (
+                              <p className="text-[10px] text-muted">Stok saat ini: {item.stock}</p>
+                            )}
                             <p className="text-xs font-bold text-primary mt-1">{item.price_formatted}</p>
                           </div>
 
                           <div className="flex items-center gap-3 mt-2">
-                            <div className="flex items-center border border-gray-200 rounded-lg px-2 py-0.5 gap-2">
+                            <div className="flex items-center border border-line rounded-full px-2 py-0.5 gap-2">
                               <button
                                 onClick={() => updateQuantity(item.id, item.size, item.qty - 1)}
-                                className="text-black/40 hover:text-black"
+                                className="text-muted hover:text-ink"
                               >
                                 <Minus className="w-3 h-3" />
                               </button>
-                              <span className="text-xs font-bold text-black w-4 text-center">{item.qty}</span>
+                              <span className="text-xs font-bold text-ink w-4 text-center">{item.qty}</span>
                               <button
                                 onClick={() => updateQuantity(item.id, item.size, item.qty + 1)}
-                                className="text-black/40 hover:text-black"
+                                disabled={item.stock !== undefined && item.qty >= item.stock}
+                                className="text-muted hover:text-ink disabled:opacity-30 disabled:cursor-not-allowed"
                               >
                                 <Plus className="w-3 h-3" />
                               </button>
                             </div>
-                            <span className="text-xs text-black/40">
+                            <span className="text-xs text-muted">
                               Subtotal: Rp {(item.price * item.qty).toLocaleString('id-ID')}
                             </span>
                           </div>
@@ -290,10 +304,10 @@ export default function CartDrawer() {
 
               {/* Footer */}
               {!orderSuccess && items.length > 0 && (
-                <div className="p-6 border-t border-gray-100 bg-gray-50/50 space-y-4">
+                <div className="p-6 border-t border-line bg-paper/50 space-y-4">
                   <div className="flex justify-between items-center text-sm">
-                    <span className="text-black/60">Total Pembelian:</span>
-                    <span className="font-display text-lg font-bold text-black">
+                    <span className="text-muted">Total Pembelian:</span>
+                    <span className="font-display text-lg font-bold text-ink">
                       Rp {totalPrice.toLocaleString('id-ID')}
                     </span>
                   </div>
@@ -303,7 +317,7 @@ export default function CartDrawer() {
                       <button
                         type="button"
                         onClick={() => setIsCheckingOut(false)}
-                        className="w-1/3 py-3 rounded-full font-bold text-xs border border-gray-200 text-black hover:bg-gray-100 transition-colors"
+                        className="w-1/3 py-3 rounded-full font-bold text-xs border border-line text-ink hover:bg-paper transition-colors"
                       >
                         Kembali
                       </button>

@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS public.products (
   price BIGINT NOT NULL,
   price_formatted TEXT NOT NULL,
   category TEXT NOT NULL,
-  images JSONB NOT NULL DEFAULT '[]'::jsonb,
+  images JSONB NOT NULL DEFAULT '[]'::jsonb, -- Data gambar produk (Array Image Data: Base64 data:image/... atau URL)
   badge TEXT DEFAULT '',
   description TEXT DEFAULT '',
   buy_link TEXT DEFAULT '',
@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS public.articles (
   date TEXT NOT NULL,
   description TEXT NOT NULL,
   content TEXT NOT NULL,
-  image TEXT NOT NULL,
+  image TEXT NOT NULL, -- Data gambar header (Image Data: Base64 data:image/... atau URL)
   author TEXT DEFAULT 'Tim Riset Salimna',
   read_time TEXT DEFAULT '5 mnt',
   is_published INTEGER DEFAULT 1,
@@ -68,6 +68,193 @@ CREATE TABLE IF NOT EXISTS public.inquiries (
   created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
+-- 5. TABEL SITE_SETTINGS (Pengaturan Tampilan Situs, mis. Foto Latar Hero)
+CREATE TABLE IF NOT EXISTS public.site_settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL DEFAULT '',
+  updated_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+CREATE OR REPLACE FUNCTION public.create_order_with_stock(p_order JSONB)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  requested_item JSONB;
+  product_row public.products%ROWTYPE;
+  order_row public.orders%ROWTYPE;
+  item_id BIGINT;
+  item_quantity INTEGER;
+  order_items JSONB := '[]'::jsonb;
+  order_total BIGINT := 0;
+BEGIN
+  IF jsonb_typeof(p_order->'items') IS DISTINCT FROM 'array'
+    OR jsonb_array_length(p_order->'items') < 1
+    OR jsonb_array_length(p_order->'items') > 50 THEN
+    RAISE EXCEPTION 'Item pesanan tidak valid';
+  END IF;
+
+  FOR requested_item IN SELECT value FROM jsonb_array_elements(p_order->'items')
+  LOOP
+    item_id := (requested_item->>'id')::BIGINT;
+    item_quantity := (requested_item->>'qty')::INTEGER;
+
+    IF item_id < 1 OR item_quantity < 1 OR item_quantity > 99 THEN
+      RAISE EXCEPTION 'Item pesanan tidak valid';
+    END IF;
+
+    SELECT * INTO product_row
+    FROM public.products
+    WHERE id = item_id AND is_active = 1
+    FOR UPDATE;
+
+    IF NOT FOUND OR COALESCE(product_row.stock, 0) < item_quantity OR product_row.price < 0 THEN
+      RAISE EXCEPTION 'Produk tidak tersedia atau stok tidak mencukupi';
+    END IF;
+
+    UPDATE public.products
+    SET stock = stock - item_quantity, updated_at = now()
+    WHERE id = item_id;
+
+    order_total := order_total + product_row.price * item_quantity;
+    order_items := order_items || jsonb_build_array(jsonb_build_object(
+      'id', product_row.id,
+      'name', product_row.name,
+      'price', product_row.price,
+      'qty', item_quantity,
+      'size', COALESCE(requested_item->>'size', '')
+    ));
+  END LOOP;
+
+  INSERT INTO public.orders (
+    order_number,
+    customer_name,
+    customer_email,
+    customer_phone,
+    shipping_address,
+    items,
+    total_amount,
+    status,
+    notes
+  )
+  VALUES (
+    p_order->>'order_number',
+    p_order->>'customer_name',
+    COALESCE(p_order->>'customer_email', ''),
+    p_order->>'customer_phone',
+    p_order->>'shipping_address',
+    order_items,
+    order_total,
+    'pending',
+    COALESCE(p_order->>'notes', '')
+  )
+  RETURNING * INTO order_row;
+
+  RETURN to_jsonb(order_row);
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.create_order_with_stock(JSONB) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.create_order_with_stock(JSONB) TO service_role;
+
+CREATE OR REPLACE FUNCTION public.update_order_status_with_stock(p_order_id BIGINT, p_status TEXT)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  order_row public.orders%ROWTYPE;
+  requested_item JSONB;
+  product_row public.products%ROWTYPE;
+  item_id BIGINT;
+  item_quantity INTEGER;
+BEGIN
+  IF p_status NOT IN ('pending', 'confirmed', 'shipped', 'completed', 'cancelled') THEN
+    RAISE EXCEPTION 'Status pesanan tidak valid';
+  END IF;
+
+  SELECT * INTO order_row
+  FROM public.orders
+  WHERE id = p_order_id
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RETURN NULL;
+  END IF;
+
+  IF order_row.status <> p_status AND p_status = 'cancelled' THEN
+    FOR requested_item IN SELECT value FROM jsonb_array_elements(order_row.items)
+    LOOP
+      UPDATE public.products
+      SET stock = stock + (requested_item->>'qty')::INTEGER, updated_at = now()
+      WHERE id = (requested_item->>'id')::BIGINT;
+    END LOOP;
+  ELSIF order_row.status = 'cancelled' AND p_status <> 'cancelled' THEN
+    FOR requested_item IN SELECT value FROM jsonb_array_elements(order_row.items)
+    LOOP
+      item_id := (requested_item->>'id')::BIGINT;
+      item_quantity := (requested_item->>'qty')::INTEGER;
+
+      SELECT * INTO product_row
+      FROM public.products
+      WHERE id = item_id
+      FOR UPDATE;
+
+      IF NOT FOUND OR COALESCE(product_row.stock, 0) < item_quantity THEN
+        RAISE EXCEPTION 'Produk tidak tersedia atau stok tidak mencukupi untuk membuka kembali pesanan';
+      END IF;
+
+      UPDATE public.products
+      SET stock = stock - item_quantity, updated_at = now()
+      WHERE id = item_id;
+    END LOOP;
+  END IF;
+
+  UPDATE public.orders
+  SET status = p_status, updated_at = now()
+  WHERE id = p_order_id
+  RETURNING * INTO order_row;
+
+  RETURN to_jsonb(order_row);
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.update_order_status_with_stock(BIGINT, TEXT) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.update_order_status_with_stock(BIGINT, TEXT) TO service_role;
+
+CREATE OR REPLACE FUNCTION public.delete_closed_order(p_order_id BIGINT)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  order_row public.orders%ROWTYPE;
+BEGIN
+  SELECT * INTO order_row
+  FROM public.orders
+  WHERE id = p_order_id
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RETURN FALSE;
+  END IF;
+
+  IF order_row.status NOT IN ('completed', 'cancelled') THEN
+    RAISE EXCEPTION 'Pesanan harus selesai atau dibatalkan sebelum dihapus';
+  END IF;
+
+  DELETE FROM public.orders WHERE id = p_order_id;
+  RETURN TRUE;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.delete_closed_order(BIGINT) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.delete_closed_order(BIGINT) TO service_role;
+
 -- ==============================================================================
 -- INDEXING UNTUK PERFORMA QUERY CEPAT
 -- ==============================================================================
@@ -81,12 +268,13 @@ CREATE INDEX IF NOT EXISTS idx_orders_status ON public.orders (status);
 
 -- ==============================================================================
 -- ROW LEVEL SECURITY (RLS) POLICIES
--- Memungkinkan akses aman baik via Backend (Service Role / Anon Key) maupun Client
+-- Public reads published content; server-side management uses the service role.
 -- ==============================================================================
 ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.articles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.inquiries ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.site_settings ENABLE ROW LEVEL SECURITY;
 
 -- Drop existing policies if re-running
 DROP POLICY IF EXISTS "Public can view products" ON public.products;
@@ -98,33 +286,16 @@ DROP POLICY IF EXISTS "Full access to orders" ON public.orders;
 DROP POLICY IF EXISTS "Public can submit inquiries" ON public.inquiries;
 DROP POLICY IF EXISTS "Full access to inquiries" ON public.inquiries;
 
--- Products Policies: Public read, full access for management
+-- Public reads only published content. Backend management uses the service role.
 CREATE POLICY "Public can view products" ON public.products
-  FOR SELECT USING (true);
+  FOR SELECT TO anon, authenticated USING (is_active = 1);
 
-CREATE POLICY "Full access to products" ON public.products
-  FOR ALL USING (true) WITH CHECK (true);
-
--- Articles Policies: Public read, full access for management
 CREATE POLICY "Public can view articles" ON public.articles
-  FOR SELECT USING (true);
+  FOR SELECT TO anon, authenticated USING (is_published = 1);
 
-CREATE POLICY "Full access to articles" ON public.articles
-  FOR ALL USING (true) WITH CHECK (true);
-
--- Orders Policies: Public create & read, full management access
-CREATE POLICY "Public can create orders" ON public.orders
-  FOR INSERT WITH CHECK (true);
-
-CREATE POLICY "Full access to orders" ON public.orders
-  FOR ALL USING (true) WITH CHECK (true);
-
--- Inquiries Policies: Public submit inquiry
+-- The API writes orders and inquiries using the server-only service role key.
 CREATE POLICY "Public can submit inquiries" ON public.inquiries
-  FOR INSERT WITH CHECK (true);
-
-CREATE POLICY "Full access to inquiries" ON public.inquiries
-  FOR ALL USING (true) WITH CHECK (true);
+  FOR INSERT TO anon, authenticated WITH CHECK (true);
 
 -- ==============================================================================
 -- SEED INITIAL DATA (Data Awal Produk & Artikel Salimna)

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { motion } from 'motion/react';
-import { BookOpen, Calendar, ArrowRight, Loader2 } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { ArrowRight } from 'lucide-react';
 import { api, Article } from '../services/api';
 import ArticleModal from './ArticleModal';
 
@@ -16,7 +16,7 @@ const fallbackArticles: Article[] = [
     image: 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?q=80&w=800&auto=format&fit=crop',
     author: 'Tim Riset Salimna',
     read_time: '6 mnt',
-    is_published: 1
+    is_published: 1,
   },
   {
     id: 2,
@@ -29,7 +29,7 @@ const fallbackArticles: Article[] = [
     image: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=800&auto=format&fit=crop',
     author: 'Tim Riset Salimna',
     read_time: '5 mnt',
-    is_published: 1
+    is_published: 1,
   },
   {
     id: 3,
@@ -42,29 +42,23 @@ const fallbackArticles: Article[] = [
     image: 'https://images.unsplash.com/photo-1507692049790-de58290a4334?q=80&w=800&auto=format&fit=crop',
     author: 'Tim Riset Salimna',
     read_time: '7 mnt',
-    is_published: 1
-  }
+    is_published: 1,
+  },
 ];
 
 export default function Research() {
-  const [articles, setArticles] = useState<Article[]>(fallbackArticles);
-  const [loading, setLoading] = useState(true);
+  const cached = api.getCachedArticles();
+  const [articles, setArticles] = useState<Article[]>(cached.length > 0 ? cached : fallbackArticles);
   const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
-  const [showAll, setShowAll] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
     api.getArticles()
-      .then(data => {
-        if (isMounted && data && data.length > 0) {
-          setArticles(data);
-        }
+      .then((data) => {
+        if (isMounted && data && data.length > 0) setArticles(data);
       })
-      .catch(err => {
+      .catch((err) => {
         console.warn('Menggunakan data riset lokal:', err.message);
-      })
-      .finally(() => {
-        if (isMounted) setLoading(false);
       });
 
     return () => {
@@ -72,84 +66,57 @@ export default function Research() {
     };
   }, []);
 
-  const displayedArticles = showAll ? articles : articles.slice(0, 3);
+  const displayedArticles = articles.slice(0, 3);
 
   return (
-    <section id="research" className="px-6 sm:px-12 py-12 md:py-20 bg-white">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex flex-col md:flex-row justify-between items-end mb-10 gap-6">
-          <div className="flex items-center gap-3">
-            <h2 className="font-display text-3xl md:text-5xl font-bold tracking-tight text-dark">Riset</h2>
-            <div className="bg-primary text-white px-6 py-3 rounded-full font-display text-xl md:text-3xl font-bold italic shadow-lg">
-              Terbaru
-            </div>
-          </div>
-          <button 
-            onClick={() => setShowAll(!showAll)}
-            className="text-primary hover:text-dark transition-colors text-xs font-bold flex items-center gap-2 group cursor-pointer"
-          >
-            {showAll ? 'TAMPILKAN LEBIH SEDIKIT' : 'LIHAT SEMUA RISET'} 
-            <ArrowRight className={`w-3 h-3 group-hover:translate-x-1 transition-transform ${showAll ? 'rotate-180' : ''}`} />
-          </button>
+    <section id="tulisan" className="pb-12 md:pb-14">
+      <div className="wrap">
+        <div className="section-head">
+          <h2>Tulisan terbaru</h2>
+          <Link to="/artikel">
+            Lihat semua tulisan <ArrowRight className="ml-1 inline h-3.5 w-3.5" />
+          </Link>
         </div>
 
-        {loading ? (
-          <div className="flex justify-center items-center py-20 text-primary">
-            <Loader2 className="w-8 h-8 animate-spin" />
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {displayedArticles.map((article, index) => (
-              <motion.div 
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {displayedArticles.map((article) => (
+              <article
                 key={article.id || article.title}
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1, duration: 0.6 }}
-                viewport={{ once: true }}
                 onClick={() => setSelectedArticle(article)}
-                className="bg-white rounded-[40px] overflow-hidden border border-blue-50 shadow-md hover:shadow-xl hover:border-primary/30 transition-all flex flex-col h-full group cursor-pointer"
+                className="group flex cursor-pointer flex-col overflow-hidden rounded-[10px] border border-line bg-white transition duration-200 hover:-translate-y-0.5 hover:border-primary"
               >
-                <div className="relative h-60 overflow-hidden">
-                  <img 
-                    src={article.image} 
-                    alt={article.title} 
-                    className="w-full h-full object-cover group-hover:scale-105 transition-all duration-700"
+                <div className="relative aspect-[1080/1350] overflow-hidden bg-paper">
+                  <img
+                    src={article.image}
+                    alt={article.title}
+                    loading="lazy"
                     referrerPolicy="no-referrer"
+                    className="h-full w-full object-contain"
                   />
-                  <div className="absolute top-6 left-6 bg-primary text-white text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-full shadow-lg">
+                  <span className="absolute left-3 top-3 rounded-full bg-white px-2.5 py-1 text-[12px] font-semibold text-ink shadow-sm">
                     {article.category}
-                  </div>
+                  </span>
                 </div>
 
-                <div className="p-8 flex flex-col flex-grow">
-                  <div className="flex items-center gap-2 text-dark/30 text-[10px] font-bold uppercase tracking-widest mb-4">
-                    <Calendar className="w-3 h-3" />
-                    {article.date}
-                  </div>
-                  <h3 className="font-display text-xl font-bold text-dark mb-4 leading-tight group-hover:text-primary transition-colors italic">
+                <div className="flex flex-1 flex-col gap-1.5 p-4">
+                  <span className="text-[12.5px] text-muted">
+                    {article.date} · {article.read_time}
+                  </span>
+                  <h3 className="font-display text-[17px] font-bold leading-snug text-ink transition-colors group-hover:text-primary">
                     {article.title}
                   </h3>
-                  <p className="text-dark/40 text-sm leading-relaxed mb-8 flex-grow line-clamp-3">
-                    {article.description}
-                  </p>
-                  <div className="flex items-center justify-between mt-auto">
-                    <span className="flex items-center gap-2 text-xs font-bold text-primary group-hover:text-dark transition-colors uppercase tracking-widest">
-                      Baca Riset <BookOpen className="w-4 h-4" />
-                    </span>
-                    <span className="text-[11px] text-black/40">{article.read_time}</span>
+                  <p className="line-clamp-2 text-sm text-muted">{article.description}</p>
+                  <div className="mt-auto flex items-center justify-between pt-2.5 text-[13.5px] font-semibold text-primary">
+                    <span>Baca selengkapnya</span>
+                    <span className="font-normal text-muted">{article.author}</span>
                   </div>
                 </div>
-              </motion.div>
+              </article>
             ))}
-          </div>
-        )}
+        </div>
       </div>
 
-      {/* Article Full View Modal */}
-      <ArticleModal
-        article={selectedArticle}
-        onClose={() => setSelectedArticle(null)}
-      />
+      <ArticleModal article={selectedArticle} onClose={() => setSelectedArticle(null)} />
     </section>
   );
 }

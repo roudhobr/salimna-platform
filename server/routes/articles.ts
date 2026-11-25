@@ -1,10 +1,18 @@
-import { Router, Request, Response } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import { supabase } from '../supabase.js';
+import { requireAdminAuth } from '../admin.js';
 
 export const articlesRouter = Router();
 
+const requireAdminForAllArticles = (req: Request, res: Response, next: NextFunction) => {
+  if (req.query.all === 'true') {
+    return requireAdminAuth(req, res, next);
+  }
+  next();
+};
+
 // GET all articles
-articlesRouter.get('/', async (req: Request, res: Response) => {
+articlesRouter.get('/', requireAdminForAllArticles, async (req: Request, res: Response) => {
   try {
     const { category, search, all } = req.query;
 
@@ -57,6 +65,10 @@ articlesRouter.get('/:idOrSlug', async (req: Request, res: Response) => {
       return res.status(404).json({ success: false, error: 'Artikel tidak ditemukan' });
     }
 
+    if (data.is_published !== 1) {
+      return res.status(404).json({ success: false, error: 'Artikel tidak ditemukan' });
+    }
+
     res.json({ success: true, data });
   } catch (error: any) {
     console.error('Error fetching article from Supabase:', error);
@@ -65,7 +77,7 @@ articlesRouter.get('/:idOrSlug', async (req: Request, res: Response) => {
 });
 
 // POST create article
-articlesRouter.post('/', async (req: Request, res: Response) => {
+articlesRouter.post('/', requireAdminAuth, async (req: Request, res: Response) => {
   try {
     const {
       title,
@@ -115,7 +127,7 @@ articlesRouter.post('/', async (req: Request, res: Response) => {
 });
 
 // PUT update article
-articlesRouter.put('/:id', async (req: Request, res: Response) => {
+articlesRouter.put('/:id', requireAdminAuth, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const {
@@ -165,7 +177,7 @@ articlesRouter.put('/:id', async (req: Request, res: Response) => {
 });
 
 // DELETE article
-articlesRouter.delete('/:id', async (req: Request, res: Response) => {
+articlesRouter.delete('/:id', requireAdminAuth, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { error } = await supabase

@@ -8,6 +8,7 @@ export interface CartItem {
   image: string;
   qty: number;
   size: string;
+  stock?: number;
 }
 
 interface CartContextType {
@@ -49,10 +50,15 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       const existingIndex = prev.findIndex(item => item.id === product.id && item.size === size);
       const img = Array.isArray(product.images) && product.images.length > 0 ? product.images[0] : (product.image || '');
       const priceNum = typeof product.price === 'number' ? product.price : parseInt(String(product.price).replace(/[^0-9]/g, ''), 10) || 0;
+      const stock = Number.isSafeInteger(product.stock) ? Math.max(0, product.stock) : undefined;
+
+      if (stock === 0) return prev;
 
       if (existingIndex > -1) {
         const updated = [...prev];
-        updated[existingIndex].qty += 1;
+        if (stock === undefined || updated[existingIndex].qty < stock) {
+          updated[existingIndex] = { ...updated[existingIndex], qty: updated[existingIndex].qty + 1, stock };
+        }
         return updated;
       } else {
         return [...prev, {
@@ -62,7 +68,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           price_formatted: product.price_formatted || `Rp ${priceNum.toLocaleString('id-ID')}`,
           image: img,
           qty: 1,
-          size
+          size,
+          stock
         }];
       }
     });
@@ -80,7 +87,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     }
     setItems(prev => prev.map(item => {
       if (item.id === id && item.size === size) {
-        return { ...item, qty };
+        return { ...item, qty: item.stock === undefined ? qty : Math.min(qty, item.stock) };
       }
       return item;
     }));

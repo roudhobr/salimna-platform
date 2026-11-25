@@ -1,13 +1,14 @@
-import crypto from 'crypto';
 import { Router, Request, Response, NextFunction } from 'express';
-import { supabase } from './supabase.js';
+import { isSupabaseConfigured, supabase } from './supabase.js';
+import { createOrderReceiptToken, isOrderReceiptConfigured } from './services/orderReceipt.js';
 
 const adminRouter = Router();
-
-const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'salimna';
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
-const ADMIN_SESSION_SECRET = process.env.ADMIN_SESSION_SECRET || 'salimna-admin-secret';
-const ADMIN_SESSION_TTL_MS = 1000 * 60 * 60 * 12;
+const ADMIN_EMAILS = new Set(
+  (process.env.ADMIN_EMAILS || '')
+    .split(',')
+    .map(email => email.trim().toLowerCase())
+    .filter(Boolean)
+);
 
 const normalizeOrder = (order: any) => {
   if (!order) return order;
@@ -27,69 +28,42 @@ const normalizeOrder = (order: any) => {
   };
 };
 
-const buildSignedToken = (username: string, issuedAt: number) => {
-  const payload = JSON.stringify({ username, issuedAt, expiresAt: issuedAt + ADMIN_SESSION_TTL_MS });
-  const encodedPayload = Buffer.from(payload, 'utf8').toString('base64url');
-  const signature = crypto
-    .createHmac('sha256', ADMIN_SESSION_SECRET)
-    .update(encodedPayload)
-    .digest('base64url');
-
-  return `${encodedPayload}.${signature}`;
-};
-
-const verifyToken = (token: string) => {
-  const parts = token.split('.');
-  if (parts.length !== 2) return null;
-
-  const [encodedPayload, signature] = parts;
-  const expectedSignature = crypto
-    .createHmac('sha256', ADMIN_SESSION_SECRET)
-    .update(encodedPayload)
-    .digest('base64url');
-
-  const signatureBuffer = Buffer.from(signature);
-  const expectedSignatureBuffer = Buffer.from(expectedSignature);
-  if (signatureBuffer.length === expectedSignatureBuffer.length && crypto.timingSafeEqual(signatureBuffer, expectedSignatureBuffer)) {
-    try {
-      const payload = JSON.parse(Buffer.from(encodedPayload, 'base64url').toString('utf8')) as {
-        username: string;
-        issuedAt: number;
-        expiresAt: number;
-      };
-
-      if (!payload.username || payload.expiresAt <= Date.now()) {
-        return null;
-      }
-
-      return payload;
-    } catch {
-      return null;
-    }
-  }
-
-  return null;
-};
-
 const getTokenFromRequest = (req: Request) => {
   const authHeader = req.headers.authorization || '';
   const match = authHeader.match(/^Bearer\s+(.+)$/i);
   return match ? match[1].trim() : null;
 };
 
-const requireAdminAuth = (req: Request, res: Response, next: NextFunction) => {
+const requireAdminAuth = async (req: Request, res: Response, next: NextFunction) => {
+  if (!isSupabaseConfigured() || ADMIN_EMAILS.size === 0) {
+    return res.status(503).json({
+      success: false,
+      error: 'Admin belum dikonfigurasi. Atur SUPABASE_SERVICE_ROLE_KEY dan ADMIN_EMAILS.',
+    });
+  }
+
   const token = getTokenFromRequest(req);
   if (!token) {
-    return res.status(401).json({ success: false, error: 'Unauthorized: token admin diperlukan.' });
+    return res.status(401).json({ success: false, error: 'Unauthorized: sesi Supabase diperlukan.' });
   }
 
-  const payload = verifyToken(token);
-  if (!payload) {
-    return res.status(401).json({ success: false, error: 'Unauthorized: token admin tidak valid atau sudah kedaluwarsa.' });
-  }
+  try {
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+    if (error || !user) {
+      return res.status(401).json({ success: false, error: 'Unauthorized: sesi Supabase tidak valid atau sudah kedaluwarsa.' });
+    }
 
-  (req as any).admin = { username: payload.username, role: 'admin' };
-  next();
+    const email = user.email?.trim().toLowerCase();
+    if (!email || !user.email_confirmed_at || !ADMIN_EMAILS.has(email)) {
+      return res.status(403).json({ success: false, error: 'Akun ini tidak memiliki akses admin.' });
+    }
+
+    (req as any).admin = { email, role: 'admin' };
+    return next();
+  } catch (error) {
+    console.error('Error validating Supabase admin session:', error);
+    return res.status(503).json({ success: false, error: 'Tidak dapat memverifikasi sesi admin ke Supabase.' });
+  }
 };
 
 const buildCsv = (rows: any[]) => {
@@ -99,8 +73,9 @@ const buildCsv = (rows: any[]) => {
 
   const headers = Object.keys(rows[0]);
   const escapeCell = (value: any) => {
-    const safeValue = value == null ? '' : String(value).replace(/"/g, '""');
-    return `"${safeValue}"`;
+    const rawValue = value == null ? '' : String(value);
+    const safeValue = /^[\t\r=+\-@]/.test(rawValue) ? `'${rawValue}` : rawValue;
+    return `"${safeValue.replace(/"/g, '""')}"`;
   };
 
   const csvRows = [
@@ -111,42 +86,10 @@ const buildCsv = (rows: any[]) => {
   return `${csvRows.join('\n')}\n`;
 };
 
-adminRouter.post('/login', async (req: Request, res: Response) => {
-  try {
-    const { username, password } = req.body || {};
-
-    if (!username || !password) {
-      return res.status(400).json({ success: false, error: 'Username dan password wajib diisi.' });
-    }
-
-    if (String(username).trim() !== ADMIN_USERNAME || String(password) !== ADMIN_PASSWORD) {
-      return res.status(401).json({ success: false, error: 'Username atau password admin salah.' });
-    }
-
-    const issuedAt = Date.now();
-    const token = buildSignedToken(ADMIN_USERNAME, issuedAt);
-    return res.json({
-      success: true,
-      data: {
-        token,
-        user: { username: ADMIN_USERNAME, role: 'admin' },
-        expiresAt: issuedAt + ADMIN_SESSION_TTL_MS,
-      },
-    });
-  } catch (error: any) {
-    console.error('Error creating admin session:', error);
-    return res.status(500).json({ success: false, error: error.message || 'Gagal membuat sesi admin.' });
-  }
-});
-
-adminRouter.post('/logout', requireAdminAuth, (req: Request, res: Response) => {
-  return res.json({ success: true, message: 'Logout admin berhasil.' });
-});
-
 adminRouter.get('/me', requireAdminAuth, (req: Request, res: Response) => {
   res.json({
     success: true,
-    data: { username: (req as any).admin.username, role: (req as any).admin.role },
+    data: { email: (req as any).admin.email, role: (req as any).admin.role },
   });
 });
 
@@ -162,7 +105,14 @@ adminRouter.get('/orders', requireAdminAuth, async (req: Request, res: Response)
     const { data, error } = await query;
     if (error) throw error;
 
-    res.json({ success: true, data: (data || []).map(normalizeOrder) });
+    const orders = (data || []).map((order: any) => {
+      const normalized = normalizeOrder(order);
+      return isOrderReceiptConfigured()
+        ? { ...normalized, receipt_token: createOrderReceiptToken(normalized.order_number) }
+        : normalized;
+    });
+
+    res.json({ success: true, data: orders });
   } catch (error: any) {
     console.error('Error fetching admin orders:', error);
     res.status(500).json({ success: false, error: error.message || 'Gagal memuat pesanan admin.' });
@@ -205,8 +155,20 @@ adminRouter.get('/orders/export.csv', requireAdminAuth, async (req: Request, res
 adminRouter.delete('/orders/:id', requireAdminAuth, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { error } = await supabase.from('orders').delete().eq('id', Number(id));
+    const orderId = Number(id);
+    if (!Number.isSafeInteger(orderId) || orderId < 1) {
+      return res.status(400).json({ success: false, error: 'ID pesanan tidak valid.' });
+    }
+
+    const { data, error } = await supabase.rpc('delete_closed_order', { p_order_id: orderId });
+
+    if (error?.code === 'P0001') {
+      return res.status(409).json({ success: false, error: error.message });
+    }
     if (error) throw error;
+    if (!data) {
+      return res.status(404).json({ success: false, error: 'Pesanan tidak ditemukan.' });
+    }
 
     res.json({ success: true, message: 'Pesanan berhasil dihapus.' });
   } catch (error: any) {
@@ -219,6 +181,10 @@ adminRouter.delete('/orders', requireAdminAuth, async (req: Request, res: Respon
   try {
     const days = Number(req.query.days || 30);
     const status = String(req.query.status || 'completed').trim() || 'completed';
+    const validStatuses = ['all', 'completed', 'cancelled'];
+    if (!Number.isInteger(days) || days < 1 || days > 3650 || !validStatuses.includes(status)) {
+      return res.status(400).json({ success: false, error: 'Rentang hari atau status penghapusan tidak valid.' });
+    }
     const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
 
     let query = supabase
@@ -226,7 +192,9 @@ adminRouter.delete('/orders', requireAdminAuth, async (req: Request, res: Respon
       .delete()
       .lt('created_at', cutoff);
 
-    if (status !== 'all') {
+    if (status === 'all') {
+      query = query.in('status', ['completed', 'cancelled']);
+    } else {
       query = query.eq('status', status);
     }
 
