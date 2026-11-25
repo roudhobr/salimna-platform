@@ -11,8 +11,13 @@ CREATE TABLE IF NOT EXISTS public.site_settings (
   updated_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
--- Server API memakai service role (bypass RLS). Tidak ada akses publik langsung.
+-- Public browser access is limited to the public hero keys by RLS.
 ALTER TABLE public.site_settings ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Public can view public site settings" ON public.site_settings;
+CREATE POLICY "Public can view public site settings" ON public.site_settings
+  FOR SELECT TO anon, authenticated
+  USING (key IN ('hero_image', 'hero_image_1', 'hero_image_2', 'hero_image_3'));
+GRANT SELECT ON public.site_settings TO anon, authenticated;
 
 -- Foto publik dapat ditampilkan di situs; unggahan dan penghapusan dilakukan API server
 -- menggunakan service role setelah memverifikasi sesi admin.

@@ -285,8 +285,9 @@ DROP POLICY IF EXISTS "Public can create orders" ON public.orders;
 DROP POLICY IF EXISTS "Full access to orders" ON public.orders;
 DROP POLICY IF EXISTS "Public can submit inquiries" ON public.inquiries;
 DROP POLICY IF EXISTS "Full access to inquiries" ON public.inquiries;
+DROP POLICY IF EXISTS "Public can view public site settings" ON public.site_settings;
 
--- Public reads only published content. Backend management uses the service role.
+-- Public reads published content; frontend management uses the server-only service role.
 CREATE POLICY "Public can view products" ON public.products
   FOR SELECT TO anon, authenticated USING (is_active = 1);
 
@@ -296,6 +297,14 @@ CREATE POLICY "Public can view articles" ON public.articles
 -- The API writes orders and inquiries using the server-only service role key.
 CREATE POLICY "Public can submit inquiries" ON public.inquiries
   FOR INSERT TO anon, authenticated WITH CHECK (true);
+
+-- Only public-facing hero values can be read by the browser.
+CREATE POLICY "Public can view public site settings" ON public.site_settings
+  FOR SELECT TO anon, authenticated
+  USING (key IN ('hero_image', 'hero_image_1', 'hero_image_2', 'hero_image_3'));
+
+GRANT SELECT ON public.products, public.articles, public.site_settings TO anon, authenticated;
+GRANT INSERT ON public.inquiries TO anon, authenticated;
 
 -- ==============================================================================
 -- SEED INITIAL DATA (Data Awal Produk & Artikel Salimna)

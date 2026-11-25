@@ -12,6 +12,8 @@ Platform ini dibangun dengan arsitektur **Full Stack**:
 - **Database**: **Supabase** (Cloud PostgreSQL) dengan Row Level Security (RLS) dan transaksi checkout melalui RPC.
 - **Admin panel**: mengelola produk, stok, artikel, pesanan, nota, dan gambar hero melalui `/admin`. Inbox pesan pengunjung tidak tersedia di panel.
 
+React membaca katalog, artikel terbit, dan pengaturan hero publik langsung dari Supabase menggunakan anon key dan RLS. Formulir kontak juga mengirim langsung ke Supabase. Checkout, operasi admin, unggahan gambar hero, dan portal nota tetap memakai backend karena memerlukan validasi/izin server-side dan rahasia server.
+
 ---
 
 ## Konfigurasi Supabase
@@ -42,12 +44,15 @@ ORDER_RECEIPT_SECRET=replace-with-at-least-32-random-bytes
 ADMIN_EMAILS=admin@example.com
 
 # Frontend Vite
+# Opsional: URL backend Express untuk checkout dan fitur admin (default /api)
 VITE_API_URL=/api
 VITE_SUPABASE_URL=https://your-project-id.supabase.co
 VITE_SUPABASE_ANON_KEY=your-anon-key-here
 ```
 
 `SUPABASE_SERVICE_ROLE_KEY` hanya boleh disimpan sebagai environment variable backend (termasuk Griv Cloud)—jangan pernah memakai awalan `VITE_` atau mengirimkannya ke browser. Admin login menggunakan Supabase Auth (email dan password). Buat akun di **Supabase Dashboard → Authentication → Users → Add user**, pastikan email sudah dikonfirmasi, lalu masukkan email tersebut ke `ADMIN_EMAILS`. Pisahkan beberapa email dengan koma. Server hanya mengizinkan akun terkonfirmasi yang tercantum di daftar itu; jangan gunakan `user_metadata` untuk menentukan hak admin.
+
+Jika frontend di-deploy ke Vercel, tambahkan `VITE_SUPABASE_URL` dan `VITE_SUPABASE_ANON_KEY` di **Project Settings → Environment Variables** untuk environment yang digunakan (Production/Preview), lalu buat deployment baru. Vite memasukkan nilai tersebut saat build; mengubah environment variable tidak memperbarui deployment yang sudah ada. Jangan masukkan `SUPABASE_SERVICE_ROLE_KEY` ke variabel berawalan `VITE_`.
 
 Atur `ORDER_RECEIPT_SECRET` dengan nilai acak minimal 32 byte, misalnya hasil `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`. Link nota adalah akses khusus pemegang link; isinya hanya nomor pesanan, tanggal, item, total, dan status. Mengganti secret akan membatalkan link nota yang lama.
 

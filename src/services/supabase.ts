@@ -1,13 +1,20 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim();
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim();
 
-export const isSupabaseClientConfigured = Boolean(
-  supabaseUrl && supabaseAnonKey && !supabaseUrl.includes('your-project-id')
-);
+const hasPlaceholderValue = (value: string) =>
+  /your-project-id|your-anon-key|placeholder/i.test(value);
 
-export const supabase = createClient(
-  supabaseUrl || 'https://placeholder.supabase.co',
-  supabaseAnonKey || 'placeholder-key'
-);
+if (
+  !supabaseUrl ||
+  !supabaseAnonKey ||
+  hasPlaceholderValue(supabaseUrl) ||
+  hasPlaceholderValue(supabaseAnonKey)
+) {
+  throw new Error(
+    'Supabase frontend belum dikonfigurasi. Set VITE_SUPABASE_URL dan VITE_SUPABASE_ANON_KEY sebelum build.'
+  );
+}
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);

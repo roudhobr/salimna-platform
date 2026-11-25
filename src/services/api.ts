@@ -80,7 +80,24 @@ export interface DashboardStats {
   recentArticles: Article[];
 }
 
-const API_BASE = '/api';
+const API_BASE = (import.meta.env.VITE_API_URL || '/api').replace(/\/$/, '');
+const PUBLIC_SETTINGS_KEYS = ['hero_image', 'hero_image_1', 'hero_image_2', 'hero_image_3'];
+
+const normalizeProduct = (product: Product): Product => {
+  let images: unknown = product.images;
+  if (typeof images === 'string') {
+    try {
+      images = JSON.parse(images);
+    } catch {
+      images = [images];
+    }
+  }
+
+  return {
+    ...product,
+    images: Array.isArray(images) ? images.filter((image): image is string => typeof image === 'string') : [],
+  };
+};
 
 // Cache ringan (memori + localStorage) supaya data langsung tampil saat pindah
 // halaman atau memuat ulang, lalu diperbarui di latar belakang.
@@ -215,27 +232,51 @@ export const api = {
 
   // Products
   async getProducts(params?: { category?: string; search?: string; all?: boolean }): Promise<Product[]> {
-    const query = new URLSearchParams();
-    if (params?.category && params.category !== 'Semua') query.append('category', params.category);
-    if (params?.search) query.append('search', params.search);
-    if (params?.all) query.append('all', 'true');
+    if (params?.all) {
+      const query = new URLSearchParams({ all: 'true' });
+      if (params.category && params.category !== 'Semua') query.set('category', params.category);
+      if (params.search) query.set('search', params.search);
+      const res = await fetch(`${API_BASE}/products?${query}`, {
+        headers: await adminHeaders(),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Gagal memuat produk admin');
+      return (json.data || []).map((product: Product) => normalizeProduct(product));
+    }
 
-    const res = await fetch(`${API_BASE}/products?${query.toString()}`, {
-      headers: params?.all ? await adminHeaders() : undefined,
-    });
-    if (!res.ok) throw new Error('Gagal memuat produk dari server');
-    const json = await res.json();
-    const data = (json.data || []) as Product[];
+    let query = supabase.from('products').select('*').order('id', { ascending: true });
+    query = query.eq('is_active', 1);
+    if (params?.category && params.category !== 'Semua') query = query.eq('category', params.category);
+
+    const { data: rows, error } = await query;
+    if (error) throw error;
+
+    let data = (rows || []).map((row) => normalizeProduct(row as Product));
+    if (params?.search) {
+      const search = params.search.toLocaleLowerCase();
+      data = data.filter((product) =>
+        `${product.name} ${product.description}`.toLocaleLowerCase().includes(search)
+      );
+    }
     const isDefaultQuery = !params?.category && !params?.search && !params?.all;
     if (isDefaultQuery) setProductsCache(data);
     return data;
   },
 
   async getProduct(idOrSlug: string | number): Promise<Product> {
-    const res = await fetch(`${API_BASE}/products/${idOrSlug}`);
-    if (!res.ok) throw new Error('Produk tidak ditemukan');
-    const json = await res.json();
-    return json.data;
+    const isNumeric = /^\d+$/.test(String(idOrSlug));
+    const column = isNumeric ? 'id' : 'slug';
+    const value = isNumeric ? Number(idOrSlug) : String(idOrSlug);
+    const { data, error } = await supabase
+      .from('products')
+      .select('*')
+      .eq(column, value)
+      .eq('is_active', 1)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) throw new Error('Produk tidak ditemukan');
+    return normalizeProduct(data as Product);
   },
 
   async createProduct(data: Partial<Product>): Promise<Product> {
@@ -274,27 +315,51 @@ export const api = {
 
   // Articles
   async getArticles(params?: { category?: string; search?: string; all?: boolean }): Promise<Article[]> {
-    const query = new URLSearchParams();
-    if (params?.category && params.category !== 'Semua') query.append('category', params.category);
-    if (params?.search) query.append('search', params.search);
-    if (params?.all) query.append('all', 'true');
+    if (params?.all) {
+      const query = new URLSearchParams({ all: 'true' });
+      if (params.category && params.category !== 'Semua') query.set('category', params.category);
+      if (params.search) query.set('search', params.search);
+      const res = await fetch(`${API_BASE}/articles?${query}`, {
+        headers: await adminHeaders(),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Gagal memuat artikel admin');
+      return json.data || [];
+    }
 
-    const res = await fetch(`${API_BASE}/articles?${query.toString()}`, {
-      headers: params?.all ? await adminHeaders() : undefined,
-    });
-    if (!res.ok) throw new Error('Gagal memuat artikel dari server');
-    const json = await res.json();
-    const data = (json.data || []) as Article[];
+    let query = supabase.from('articles').select('*').order('id', { ascending: false });
+    query = query.eq('is_published', 1);
+    if (params?.category && params.category !== 'Semua') query = query.eq('category', params.category);
+
+    const { data: rows, error } = await query;
+    if (error) throw error;
+
+    let data = (rows || []) as Article[];
+    if (params?.search) {
+      const search = params.search.toLocaleLowerCase();
+      data = data.filter((article) =>
+        `${article.title} ${article.description} ${article.content}`.toLocaleLowerCase().includes(search)
+      );
+    }
     const isDefaultQuery = !params?.category && !params?.search && !params?.all;
     if (isDefaultQuery) setArticlesCache(data);
     return data;
   },
 
   async getArticle(idOrSlug: string | number): Promise<Article> {
-    const res = await fetch(`${API_BASE}/articles/${idOrSlug}`);
-    if (!res.ok) throw new Error('Artikel tidak ditemukan');
-    const json = await res.json();
-    return json.data;
+    const isNumeric = /^\d+$/.test(String(idOrSlug));
+    const column = isNumeric ? 'id' : 'slug';
+    const value = isNumeric ? Number(idOrSlug) : String(idOrSlug);
+    const { data, error } = await supabase
+      .from('articles')
+      .select('*')
+      .eq(column, value)
+      .eq('is_published', 1)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) throw new Error('Artikel tidak ditemukan');
+    return data as Article;
   },
 
   async createArticle(data: Partial<Article>): Promise<Article> {
@@ -386,13 +451,12 @@ export const api = {
 
   // Visitor contact form
   async sendInquiry(data: { name: string; email: string; message: string }): Promise<void> {
-    const res = await fetch(`${API_BASE}/inquiries`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
+    const { error } = await supabase.from('inquiries').insert({
+      name: data.name,
+      email: data.email,
+      message: data.message,
     });
-    const json = await res.json();
-    if (!res.ok) throw new Error(json.error || 'Gagal mengirim pesan');
+    if (error) throw error;
   },
 
   // Dashboard Stats
@@ -405,12 +469,15 @@ export const api = {
 
   // Site settings (tampilan)
   async getSettings(): Promise<SiteSettings> {
-    const res = await fetch(`${API_BASE}/settings`);
-    const json = await res.json().catch(() => null);
-    if (!res.ok) throw new Error(json?.error || 'Gagal memuat pengaturan situs');
-    const data = (json?.data || {}) as SiteSettings;
-    setSettingsCache(data);
-    return data;
+    const { data: rows, error } = await supabase
+      .from('site_settings')
+      .select('key,value')
+      .in('key', PUBLIC_SETTINGS_KEYS);
+    if (error) throw error;
+
+    const settings = Object.fromEntries((rows || []).map((row) => [row.key, row.value ?? ''])) as SiteSettings;
+    setSettingsCache(settings);
+    return settings;
   },
 
   async updateSettings(data: Partial<SiteSettings>): Promise<SiteSettings> {

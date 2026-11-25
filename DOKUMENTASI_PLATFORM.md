@@ -20,7 +20,7 @@ Platform menggabungkan publikasi artikel, pengelolaan toko daring, pemrosesan pe
 | Konfirmasi WhatsApp | Tautan chat WhatsApp `wa.me` yang dibuka oleh pengunjung/admin |
 | Hosting produksi | Griv Cloud cPanel Node.js |
 
-Frontend mengakses API melalui prefix `/api`. Saat pengembangan, Vite berjalan pada port `3000` dan meneruskan permintaan API ke backend Express pada port `5000`.
+Frontend membaca produk aktif, artikel terbit, pengaturan hero publik, dan mengirim pesan pengunjung langsung ke Supabase menggunakan anon key dan kebijakan RLS. Checkout/transaksi stok, operasi admin, unggahan gambar hero, dan portal nota tetap melalui backend Express karena memerlukan izin server-side atau rahasia. Saat pengembangan, Vite meneruskan permintaan backend `/api` ke Express pada port `5000`.
 
 ## 3. Fitur situs
 
@@ -29,10 +29,10 @@ Frontend mengakses API melalui prefix `/api`. Saat pengembangan, Vite berjalan p
 - **Beranda** menampilkan tiga slide hero, pengantar Salimna, ringkasan tulisan, dan koleksi toko. Foto hero hanya berasal dari pengaturan Supabase; jika belum tersedia, slide menggunakan latar grafis tanpa foto bawaan.
 - **Artikel** menampilkan tulisan riset dengan kategori dan pencarian berdasarkan judul, kategori, deskripsi, isi, serta penulis. Artikel dapat dibuka untuk membaca isi lengkap.
 - **Toko** menampilkan katalog produk, filter kategori, informasi harga/stok, dan pilihan produk.
-- **Keranjang dan checkout** mengumpulkan nama, nomor WhatsApp, alamat, email opsional, serta item pesanan. Pesanan dibuat melalui API dan stok diproses lewat fungsi database.
+- **Keranjang dan checkout** mengumpulkan nama, nomor WhatsApp, alamat, email opsional, serta item pesanan. Pesanan dibuat melalui backend dan stok diproses lewat fungsi database.
 - **Konfirmasi WhatsApp** tersedia sebagai tautan chat setelah checkout. Pengunjung meninjau dan mengirim pesan dari aplikasi WhatsApp; server tidak mengirim pesan otomatis.
 - **Portal nota** menyediakan tautan nota untuk pesanan. Nota dapat dibuka dan dicetak atau disimpan sebagai PDF; data publiknya dibatasi pada nomor pesanan, tanggal, status, rincian item, dan total.
-- **Pemuatan data cepat** menggunakan cache memori dan `localStorage` untuk menampilkan data yang pernah dimuat sambil mengambil pembaruan dari server.
+- **Pemuatan data cepat** menggunakan cache memori dan `localStorage` untuk menampilkan data yang pernah dimuat sambil mengambil pembaruan langsung dari Supabase.
 - Jika belum ada data Supabase atau cache Supabase, artikel dan produk tidak diganti konten contoh. Foto yang kosong memakai placeholder, sedangkan hero memakai latar grafis tanpa foto bawaan.
 - Tampilan responsif untuk layar ponsel dan desktop.
 
@@ -84,7 +84,7 @@ Frontend mengakses API melalui prefix `/api`. Saat pengembangan, Vite berjalan p
 
 - `src/components/` — komponen antarmuka seperti navigasi, hero, toko, keranjang, dan footer.
 - `src/pages/` — halaman Artikel, Toko, Admin, dan Nota.
-- `src/services/api.ts` — pemanggilan endpoint backend dan cache data frontend.
+- `src/services/api.ts` — pemanggilan langsung Supabase untuk data publik, backend untuk operasi terlindungi, dan cache data frontend.
 - `src/context/CartContext.tsx` — state keranjang belanja.
 - `server/index.ts` — konfigurasi server Express dan pemasangan router API.
 - `server/routes/` — endpoint produk, artikel, pesanan, nota, statistik, pengaturan situs, dan inquiry.
@@ -108,10 +108,12 @@ Salin `.env.example` menjadi `.env`, lalu isi kredensial sesuai project. Nama va
 
 `SUPABASE_SERVICE_ROLE_KEY` dan `ORDER_RECEIPT_SECRET` adalah rahasia server. Jangan beri awalan `VITE_` dan jangan kirim nilainya ke browser atau commit ke Git. Token nota memerlukan secret acak minimal 32 byte; menggantinya akan membatalkan tautan nota yang sebelumnya dibuat.
 
+`VITE_SUPABASE_URL` dan `VITE_SUPABASE_ANON_KEY` dipakai oleh React untuk mengakses data publik yang dibatasi RLS. `VITE_API_URL` hanya dibutuhkan oleh checkout dan fitur admin; biarkan `/api` jika frontend dan backend memakai domain yang sama, atau isi dengan URL backend Express (contoh `https://api.domain-anda/api`) jika di-host terpisah.
+
 ### Persiapan Supabase
 
 1. Jalankan `supabase/schema.sql` melalui SQL Editor Supabase.
-2. Jalankan `supabase/site-settings.sql` untuk fitur unggah hero.
+2. Jalankan `supabase/site-settings.sql` untuk kebijakan baca hero publik dan bucket unggah gambar.
 3. Buat akun admin melalui Supabase Auth dan masukkan email terkonfirmasinya ke `ADMIN_EMAILS`.
 4. Isi variabel lingkungan yang diperlukan di lingkungan server.
 
